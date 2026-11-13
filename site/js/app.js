@@ -263,7 +263,7 @@
     return {
       data: d, save: save,
       done: function (k) { if (!d.lessons[k]) { d.lessons[k] = true; save(); } },
-      reset: function () { d.lessons = {}; d.kc = {}; d.quiz = {}; d.exam = null; d.passedOn = null; save(); }
+      reset: function () { d.lessons = {}; d.kc = {}; d.quiz = {}; d.exam = null; d.passedOn = null; d.pos = {}; save(); }
     };
   })();
   function lkey(u, l) { return u.id + '.' + l.id; }
@@ -349,14 +349,15 @@
     }
     return vs[0] || null;
   }
-  function Narrator(bar, segs) {
+  function Narrator(bar, segs, label) {
+    label = label || 'Listen to this lesson';
     var synth = window.speechSynthesis, i = 0, playing = false, token = 0, cur = null;
     if (!synth || typeof window.SpeechSynthesisUtterance === 'undefined') {
       bar.innerHTML = '<span class="hint">Narration needs a browser with speech support (Chrome, Edge or Safari). You can still read every lesson.</span>';
       return { stop: function () {} };
     }
     bar.innerHTML =
-      '<button class="btn btn-navy btn-sm" data-n="play">' + ICON.sound.replace('<svg', '<svg width="16" height="16"') + '<span>Listen to this lesson</span></button>' +
+      '<button class="btn btn-navy btn-sm" data-n="play">' + ICON.sound.replace('<svg', '<svg width="16" height="16"') + '<span>' + label + '</span></button>' +
       '<button class="tool-btn" data-n="prev" title="Previous paragraph" aria-label="Previous paragraph">⏮</button>' +
       '<button class="tool-btn" data-n="next" title="Next paragraph" aria-label="Next paragraph">⏭</button>' +
       '<button class="tool-btn" data-n="stop" title="Stop" aria-label="Stop narration">■</button>' +
@@ -374,7 +375,7 @@
       if (r.top < 150 || r.bottom > window.innerHeight - 30) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     function ui() {
-      $('span', playBtn).textContent = playing ? 'Pause' : i > 0 ? 'Resume' : 'Listen to this lesson';
+      $('span', playBtn).textContent = playing ? 'Pause' : i > 0 ? 'Resume' : label;
       playBtn.classList.toggle('on', playing);
       status.textContent = playing || i > 0 ? 'Part ' + Math.min(i + 1, segs.length) + ' of ' + segs.length : '';
     }
@@ -501,6 +502,7 @@
     cleanup.push(function () { io.disconnect(); vids.forEach(function (v) { v.pause(); }); });
   }
 
+  var PAGE_INTERACTIVE = { kc: 1, practice: 1, rate: 1, match: 1, order: 1, sort: 1, classify: 1, drill: 1, measure: 1, walk: 1, case: 1 };
   /* ---------- lesson page ---------- */
   var ACT_TYPES = { match: 1, order: 1, sort: 1, classify: 1, drill: 1, measure: 1, walk: 1, case: 1 };
   function actFrame(id, tag, title, prompt) {
@@ -512,7 +514,7 @@
     var i = unitIndex(u), li = u.lessons.indexOf(l), key = lkey(u, l), wasDone = !!course.data.lessons[key];
     var nextL = u.lessons[li + 1], prevL = u.lessons[li - 1];
     var segs = [], after = [], tasks = [];
-    var html = l.blocks.map(function (b, k) {
+    var parts = l.blocks.map(function (b, k) {
       var id = 'cb' + k, t = b[0], d = b[1];
       if (t === 'p') return '<p class="narr" id="' + id + '">' + d + '</p>';
       if (t === 'h') return '<h3 class="narr lesson-h" id="' + id + '">' + esc(d) + '</h3>';
@@ -543,6 +545,29 @@
         '<p class="narr case-text">' + esc(d.text) + '</p><div class="vitals">' + Object.keys(d.vitals || {}).map(function (v) { return '<span class="chip"><b>' + esc(v) + '</b> ' + esc(d.vitals[v]) + '</span>'; }).join(' ') + '</div>' +
         '<div class="case-strip"></div><div class="case-qs"></div></section>';
       return '';
+    });
+
+    // Pages: the lesson is shown one page at a time, and Next unlocks when the
+    // page's knowledge checks and activities are done. A new page starts at each
+    // heading, at each patient scenario, where teaching resumes after an
+    // activity, and at a closing run of knowledge checks.
+    var pages = [], lastTitle = l.title;
+    l.blocks.forEach(function (b, k) {
+      var t = b[0], prev = l.blocks[k - 1], nxt = l.blocks[k + 1], cur = pages[pages.length - 1];
+      var interactive = function (x) { return x && PAGE_INTERACTIVE[x[0]]; };
+      var checks = t === 'kc' && nxt && nxt[0] === 'kc' && prev && !interactive(prev);
+      var brk = !cur || (cur.ks.length && (t === 'h' || t === 'case' || checks ||
+        (interactive(prev) && !interactive(b) && t !== 'callout' && t !== 'note')));
+      if (brk) {
+        var title = t === 'h' ? b[1] : t === 'case' ? d2title(b[1]) : checks ? 'Check your understanding' : cur ? lastTitle + ' (continued)' : 'Introduction';
+        if (t === 'h') lastTitle = b[1];
+        pages.push({ title: title, ks: [] });
+      }
+      pages[pages.length - 1].ks.push(k);
+    });
+    function d2title(d) { return d.title || 'Patient scenario'; }
+    var html = '<div class="page-steps" id="page-steps"></div>' + pages.map(function (pg, n) {
+      return '<section class="lesson-page" data-pg="' + n + '"' + (n ? ' hidden' : '') + '>' + pg.ks.map(function (k) { return parts[k]; }).join('') + '</section>';
     }).join('');
 
     var listHtml = u.lessons.map(function (x, k) {
@@ -553,12 +578,12 @@
       '<div class="wrap module-layout course-layout" style="--c:' + u.color + '"><nav class="rhythm-list lesson-side" aria-label="Lessons in this unit"><h4>Unit ' + (i + 1) + '</h4>' + listHtml + '</nav>' +
       '<div><div class="narr-bar no-print" id="narr-bar"></div><article class="panel lesson-body">' + html + '</article>' +
       '<div class="lesson-foot panel"><div class="lf-need" id="lf-need"></div><div class="lf-btns">' +
-      (prevL ? '<a class="btn btn-ghost" href="#course-' + u.id + '-' + prevL.id + '">← Previous</a>' : '<a class="btn btn-ghost" href="#course-' + u.id + '">← Unit overview</a>') +
-      '<button class="btn btn-primary" id="lesson-done">' + (nextL ? 'Complete lesson &amp; continue →' : 'Complete lesson → Unit quiz') + '</button></div></div></div></div>';
+      '<button class="btn btn-ghost" id="pg-back"></button><button class="btn btn-primary" id="pg-next"></button></div></div></div></div>';
 
-    segs.push({ el: $('.page-head h1'), text: speechify(l.title) });
+    var pageSegs = pages.map(function () { return []; }), inited = [], curPg = 0, narr = null;
+    pageSegs[0].push({ el: $('.page-head h1'), text: speechify(l.title) });
     function task(label, el) {
-      var tk = { label: label, done: false, el: el };
+      var tk = { label: label, done: false, el: el, pg: curPg };
       tasks.push(tk);
       return function () {
         if (tk.done) return;
@@ -569,7 +594,7 @@
       };
     }
 
-    l.blocks.forEach(function (b, k) {
+    function initBlock(b, k) {
       var id = 'cb' + k, t = b[0], d = b[1], el = document.getElementById(id);
       if (t === 'p' || t === 'h' || t === 'callout' || t === 'note') segs.push({ el: el, text: speechify(el.textContent) });
       else if (t === 'list') d.forEach(function (x, j) { var li2 = document.getElementById(id + '-' + j); segs.push({ el: li2, text: speechify(li2.textContent) }); });
@@ -613,30 +638,73 @@
         var fin = task(t === 'case' ? d.title.replace(/^Scenario: /, 'Scenario: ') : d.title, el);
         ({ match: matchActivity, order: orderActivity, sort: sortActivity, classify: classifyActivity, drill: drillActivity, measure: measureActivity, walk: walkActivity, case: caseActivity })[t](el, d, fin);
       }
-    });
-    after.forEach(function (f) { f(); });
-    autoplayVideos(main);
-
-    function sync() {
-      var left = tasks.filter(function (x) { return !x.done; });
-      var ok = wasDone || !left.length;
-      $('#lesson-done').disabled = !ok;
-      var need = $('#lf-need');
-      if (ok) { need.innerHTML = '<span class="hint">' + (wasDone ? 'You have completed this lesson.' : 'Nice work — every activity is done.') + '</span>' + (wasDone && left.length ? '<span class="hint"> Activities left to try: ' + left.length + '.</span>' : ''); return; }
-      need.innerHTML = '<b>Still to do (' + left.length + ' of ' + tasks.length + '):</b><ul class="todo">' + left.map(function (x, n) { return '<li><a href="#" data-todo="' + tasks.indexOf(x) + '">' + esc(x.label) + '</a></li>'; }).join('') + '</ul>';
     }
+
+    // ---- page navigation
+    var pos = (course.data.pos = course.data.pos || {})[key] || {};
+    var at = Math.min(pos.at || 0, pages.length - 1);
+    var max = wasDone ? pages.length - 1 : Math.min(Math.max(pos.max || 0, at), pages.length - 1);
+    function showPage(n, scroll) {
+      at = n;
+      if (at > max) max = at;
+      course.data.pos[key] = { at: at, max: max }; course.save();
+      $all('.lesson-page', main).forEach(function (sec) { sec.hidden = +sec.dataset.pg !== n; });
+      if (!inited[n]) {
+        // build a page's strips and activities the first time it is shown, while visible
+        inited[n] = true; curPg = n; segs = pageSegs[n]; after = [];
+        pages[n].ks.forEach(function (k) { initBlock(l.blocks[k], k); });
+        after.forEach(function (f) { f(); });
+      } else window.dispatchEvent(new Event('resize')); // redraw strips at their visible size
+      if (narr) narr.stop();
+      var old = $('#narr-bar'), nb = old.cloneNode(false);
+      old.parentNode.replaceChild(nb, old);
+      narr = Narrator(nb, pageSegs[n], pages.length > 1 ? 'Listen to this page' : 'Listen to this lesson');
+      renderSteps();
+      sync();
+      if (scroll) window.scrollTo({ top: Math.max(0, $('.course-layout', main).getBoundingClientRect().top + window.pageYOffset - 90), behavior: 'smooth' });
+    }
+    function renderSteps() {
+      var st = $('#page-steps');
+      if (pages.length < 2) { st.hidden = true; return; }
+      st.innerHTML = '<span class="ps-count">Page ' + (at + 1) + ' of ' + pages.length + '</span><div class="ps-dots">' + pages.map(function (pg, n) {
+        return '<button type="button" data-pg="' + n + '" class="' + (n === at ? 'on' : n <= max ? 'seen' : '') + '"' + (n > max ? ' disabled' : '') +
+          ' title="' + esc(pg.title) + '" aria-label="Page ' + (n + 1) + ': ' + esc(pg.title) + (n === at ? ' (current)' : '') + '"></button>';
+      }).join('') + '</div>';
+    }
+    function sync() {
+      var left = tasks.filter(function (x) { return x.pg === at && !x.done; });
+      var last = at === pages.length - 1;
+      var ok = wasDone || at < max || !left.length;
+      var next = $('#pg-next'), back = $('#pg-back'), need = $('#lf-need');
+      next.disabled = !ok;
+      next.innerHTML = last ? (nextL ? 'Complete lesson &amp; continue →' : 'Complete lesson → Unit quiz') : 'Next →';
+      back.innerHTML = at > 0 ? '← Back' : prevL ? '← Previous lesson' : '← Unit overview';
+      if (!ok) {
+        need.innerHTML = '<b>To continue, finish ' + (left.length === 1 ? 'this' : 'these (' + left.length + ')') + ':</b><ul class="todo">' + left.map(function (x) {
+          return '<li><a href="#" data-todo="' + tasks.indexOf(x) + '">' + esc(x.label) + '</a></li>'; }).join('') + '</ul>';
+      } else need.innerHTML = '<span class="hint">' + (last ? (wasDone ? 'You have completed this lesson.' : 'Last page of this lesson.') : 'Up next: <b>' + esc(pages[at + 1].title) + '</b>') + '</span>';
+    }
+    $('#page-steps').addEventListener('click', function (e) {
+      var bt = e.target.closest('[data-pg]'); if (bt && !bt.disabled) showPage(+bt.dataset.pg, true);
+    });
     $('#lf-need').addEventListener('click', function (e) {
       var a = e.target.closest('[data-todo]'); if (!a) return;
       e.preventDefault();
       tasks[+a.dataset.todo].el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
-    $('#lesson-done').addEventListener('click', function () {
+    $('#pg-back').addEventListener('click', function () {
+      if (at > 0) return showPage(at - 1, true);
+      location.hash = prevL ? '#course-' + u.id + '-' + prevL.id : '#course-' + u.id;
+    });
+    $('#pg-next').addEventListener('click', function () {
+      if (at < pages.length - 1) return showPage(at + 1, true);
       course.done(key);
+      course.data.pos[key] = { at: 0, max: pages.length - 1 }; course.save();
       location.hash = nextL ? '#course-' + u.id + '-' + nextL.id : '#course-' + u.id + '-quiz';
     });
-    sync();
-    var narr = Narrator($('#narr-bar'), segs);
-    cleanup.push(narr.stop);
+    showPage(at, false);
+    autoplayVideos(main);
+    cleanup.push(function () { if (narr) narr.stop(); });
   }
 
   /* ---------- activities ---------- */
