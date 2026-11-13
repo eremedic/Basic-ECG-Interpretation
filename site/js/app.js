@@ -313,6 +313,11 @@
     var acr = { STEMI: 'stemmy', ECG: 'E C G', ACLS: 'A C L S' };
     return String(t)
       .replace(/\(−\)/g, ' negative').replace(/\(\+\)/g, ' positive')
+      // ions: say the name, and drop "(Na⁺)" after a name that is already spoken
+      .replace(/\s*\((Na⁺|K⁺|Ca²⁺)\)/g, '')
+      .replace(/Na⁺\/K⁺-ATPase/g, 'sodium potassium A T P ase').replace(/Na⁺\/K⁺/g, 'sodium potassium')
+      .replace(/Na⁺/g, 'sodium').replace(/K⁺/g, 'potassium').replace(/Ca²⁺/g, 'calcium')
+      .replace(/−(\d)/g, 'minus $1').replace(/\+(\d)/g, 'plus $1')
       .replace(/\b(Leads?|type|Type|Mobitz)\s+(III|II|I)\b/g, function (m, a, r) { return a + ' ' + ROMAN[r]; })
       .replace(/,\s*(III|II)\b/g, function (m, r) { return ', ' + ROMAN[r]; })
       .replace(/\band (III|II)\b/g, function (m, r) { return 'and ' + ROMAN[r]; })
