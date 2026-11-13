@@ -1,7 +1,7 @@
 # Basic ECG Interpretation — CSHealthED
 
 A self-paced, narrated 3-lead ECG course for paramedic students, sold as a
-stand-alone website: **Unit 1 is free, the full course is $49 one-time** via
+stand-alone website: **Unit 1 is free; the full course is $49 for one year of access** via
 Stripe Checkout. Student name, email, payment and the course certificate are
 recorded in Supabase.
 
@@ -43,6 +43,8 @@ Student records then appear in **Table Editor → ecg_course_students**, with th
 - `certificate_issued_at`
 
 Row-level security is on, with no policies. Only the site's server functions (using the service-role key) can read or write this table.
+
+Then run `supabase/migrations/0002_one_year_access.sql`, which adds `access_expires_at`. Each payment gives **one year of access**. Students can renew in the last 30 days or after their access ends; renewing early adds a year to the current end date. Certificates stay verifiable after access ends.
 
 ### 2. Netlify
 

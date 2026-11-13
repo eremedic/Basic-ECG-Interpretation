@@ -4,7 +4,7 @@
 //   link_token  the token from a sign-in email
 import { getDeps, missing } from '../lib/deps.mjs';
 import { json, readJson, safe } from '../lib/http.mjs';
-import { findStudent, recordPayment, touchSignIn } from '../lib/students.mjs';
+import { accessUntil, findStudent, hasAccess, recordPayment, touchSignIn } from '../lib/students.mjs';
 import { signToken, verifyToken } from '../lib/tokens.mjs';
 
 export async function handle(req, deps) {
@@ -37,6 +37,7 @@ export async function handle(req, deps) {
 		if (!email) return json(401, { error: 'This sign-in link has expired. Request a new one.' });
 		const student = await findStudent(deps.db, email);
 		if (!student?.paid_at) return json(403, { error: 'No enrollment was found for this email.' });
+		if (!hasAccess(student)) return json(403, { expired: true, accessUntil: accessUntil(student).toISOString(), error: 'Your one-year access has ended. Enroll again to renew it.' });
 		await touchSignIn(deps.db, email);
 		return json(200, { token: signToken('access', email, deps.secret), name: student.name, email });
 	}

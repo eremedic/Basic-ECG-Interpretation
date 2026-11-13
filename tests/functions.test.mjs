@@ -148,7 +148,11 @@ test('course-content: full course for enrolled students only', async () => {
 	const [s, r] = await body(await courseContent(get('/api/course-content', { authorization: `Bearer ${token}` }), deps, data));
 	assert.equal(s, 200);
 	assert.equal(r.course.UNITS.length, 2);
-	assert.deepEqual(r.student, { name: 'Pat Student', email: 'pat@example.com', certificate: null });
+	const { accessUntil, canRenew, ...rest } = r.student;
+	assert.deepEqual(rest, { name: 'Pat Student', email: 'pat@example.com', certificate: null });
+	const days = (new Date(accessUntil) - Date.now()) / 86400000;
+	assert.ok(days > 364 && days <= 365, 'one year of access');
+	assert.equal(canRenew, false);
 });
 
 test('course-content: the real build serves all 9 units', async () => {
@@ -234,4 +238,36 @@ test('create-checkout: branded image, custom text, optional terms consent', asyn
 	await createCheckout(post('/api/create-checkout', { name: 'A B', email: 'c@d.co' }), d2);
 	assert.deepEqual(d2.stripe.created[0].consent_collection, { terms_of_service: 'required' });
 	assert.match(d2.stripe.created[0].custom_text.terms_of_service_acceptance.message, /#terms/);
+});
+
+test('one-year access: expires, blocks content and sign-in links, and renews', async () => {
+	const deps = fakeDeps();
+	const { token } = await enroll(deps);
+	const row = deps.db.rows[0];
+	const auth = { authorization: `Bearer ${token}` };
+	// Already enrolled with most of the year left: no second purchase.
+	assert.equal((await createCheckout(post('/api/create-checkout', { name: 'Pat', email: 'pat@example.com' }), deps)).status, 409);
+
+	// The year runs out.
+	row.access_expires_at = new Date(Date.now() - 1000).toISOString();
+	const [s1, r1] = await body(await courseContent(get('/api/course-content', auth), deps, { UNITS: [] }));
+	assert.equal(s1, 403);
+	assert.equal(r1.expired, true);
+	assert.equal((await certificate(post('/api/certificate', { name: 'Pat', score: 90 }, auth), deps)).status, 403);
+	const sent = deps.sent.length;
+	await requestLink(post('/api/request-link', { email: 'pat@example.com' }), deps);
+	assert.equal(deps.sent.length, sent, 'no sign-in email once access has ended');
+
+	// Renew: a new payment gives a fresh year.
+	const { token: t2 } = await enroll(deps);
+	assert.equal(deps.db.rows.length, 1, 'same student record');
+	const days = (new Date(row.access_expires_at) - Date.now()) / 86400000;
+	assert.ok(days > 364 && days <= 365);
+	assert.equal((await courseContent(get('/api/course-content', { authorization: `Bearer ${t2}` }), deps, { UNITS: [] })).status, 200);
+
+	// Renewing early (within 30 days of the end) adds a year to the end date.
+	row.access_expires_at = new Date(Date.now() + 10 * 86400000).toISOString();
+	await enroll(deps);
+	const days2 = (new Date(row.access_expires_at) - Date.now()) / 86400000;
+	assert.ok(days2 > 374 && days2 <= 375, String(days2));
 });

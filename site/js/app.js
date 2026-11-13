@@ -412,7 +412,9 @@
       'A self-paced, narrated course for paramedic students. Work through ' + UNITS.length + ' units in order: listen to each lesson, answer the knowledge checks, practice on live ECGs, pass each unit quiz, then take the final exam.',
       '<a class="btn btn-primary" href="' + ns.href + '">' + (p ? 'Continue: ' + esc(ns.label) : 'Start the course') + ' →</a>') +
       '<section class="section"><div class="wrap">' +
-      (paid() ? '' : '<div class="enroll-strip"><div><b>You’re previewing the course.</b> Unit 1 is free. Enroll to unlock all ' + UNITS.length + ' units, the final exam and your certificate.</div><div class="enroll-strip-cta">' + enrollCta() + '<a class="btn btn-ghost" href="#signin">Sign in</a></div></div>') +
+      (paid() ? accessNote() :
+        expiredOn() ? '<div class="enroll-strip"><div><b>Your one-year access ended ' + esc(expiredOn()) + '.</b> Unit 1 is still open. Renew for another year to pick up where you left off — your progress on this device is kept.</div><div class="enroll-strip-cta">' + enrollCta('Renew — ' + PRICE) + '</div></div>'
+        : '<div class="enroll-strip"><div><b>You’re previewing the course.</b> Unit 1 is free. Enroll to unlock all ' + UNITS.length + ' units, the final exam and your certificate for one year.</div><div class="enroll-strip-cta">' + enrollCta() + '<a class="btn btn-ghost" href="#signin">Sign in</a></div></div>') +
       '<div class="panel course-summary"><div><div class="kicker">Your progress</div><div class="progress big" style="--c:var(--ok)"><i style="width:' + p + '%"></i></div>' +
       '<p class="muted" style="margin:8px 0 0">' + p + '% complete · about ' + Math.round(mins / 60 * 2) / 2 + ' hours of lessons · pass mark ' + PASS + '% on every quiz and the final exam</p></div>' +
       '<ul class="course-features"><li><b>Narrated lessons</b> read aloud with the text highlighted</li><li><b>Knowledge checks</b> and <b>activities</b> — matching, sorting, calipers and drills</li><li><b>Practice ECGs</b> and <b>patient scenarios</b> in every rhythm unit</li><li><b>Unit quizzes</b> and a <b>final exam</b> with a certificate</li></ul></div>' +
@@ -1049,7 +1051,11 @@
   var CONTENT_KEY = 'cshealthed-ecg-course-content';
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+  var EXPIRED_KEY = 'cshealthed-ecg-course-expired';
   var account = { token: lsGet(ACCESS_KEY), student: null, paid: false };
+  function niceDate(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); }
+  // Set when this browser's year of access ran out (the date it ended).
+  function expiredOn() { var v = lsGet(EXPIRED_KEY); return v ? (niceDate(v) || 'recently') : ''; }
   function paid() { return account.paid; }
 
   function api(path, opts) {
@@ -1081,6 +1087,7 @@
   }
   function setStudent(s) {
     account.student = s || null;
+    if (s) lsSet(EXPIRED_KEY, null);
     if (s && s.name && !course.data.name) { course.data.name = s.name; course.save(); }
     syncAccountUi();
   }
@@ -1106,9 +1113,12 @@
         return true;
       }
       if (r.status === 401 || r.status === 403) {
-        // The token is no longer valid: back to the free preview.
+        // The token is no longer valid, or the year of access has ended: back to the free preview.
+        var hadCourse = account.paid;
         account.token = null; account.paid = false;
         lsSet(ACCESS_KEY, null); lsSet(CONTENT_KEY, null);
+        if (r.expired) lsSet(EXPIRED_KEY, r.accessUntil || 'yes');
+        if (hadCourse) { location.reload(); return false; } // drop the full course from memory
         syncAccountUi();
       }
       return account.paid; // offline: keep using the cached course
@@ -1126,6 +1136,13 @@
     var si = $('#sign-in-link');
     if (si) si.hidden = !!account.token;
   }
+  // "Access until …" for enrolled students, with a renew button near the end of the year.
+  function accessNote() {
+    var st = account.student;
+    if (!st || !st.accessUntil) return '';
+    return '<div class="access-note"><span>Your access runs until <b>' + esc(niceDate(st.accessUntil)) + '</b>.</span>' +
+      (st.canRenew ? ' <span>Renew now to add another year.</span> ' + enrollCta('Renew — ' + PRICE) : '') + '</div>';
+  }
   function enrollCta(text) {
     return '<a class="btn btn-primary" href="#enroll">' + (text || 'Enroll — ' + PRICE) + '</a>';
   }
@@ -1142,7 +1159,7 @@
       '<p class="lead">A complete 3-lead rhythm course for paramedic students. Listen to narrated lessons, practice on live, randomized ECG strips, prove it with quizzes and a final exam — and earn your certificate.</p>' +
       (paid()
         ? '<div class="hero-cta"><a class="btn btn-primary" href="#course">Continue my course →</a></div>'
-        : '<div class="price-tag"><b>' + PRICE + '</b><span>one-time · lifetime access</span></div>' +
+        : '<div class="price-tag"><b>' + PRICE + '</b><span>one payment · 12 months of access</span></div>' +
           '<div class="hero-cta">' + enrollCta('Enroll now — ' + PRICE) + '<a class="btn btn-light" href="#course-electro">Try Unit 1 free</a></div>' +
           '<p class="hero-signin">Already enrolled? <a href="#signin">Sign in</a></p>') +
       '<div class="hero-stats"><div><b>' + UNITS.length + '</b><span>units</span></div><div><b>' + lessons + '</b><span>lessons</span></div><div><b>~' + hours + ' h</b><span>of learning</span></div></div>' +
@@ -1165,12 +1182,12 @@
 
       (paid() ? '' :
       '<section class="section" style="padding-top:0"><div class="wrap"><div class="enroll-card"><div><h2>Enroll in the full course</h2>' +
-      '<ul class="tick-list"><li>All 9 units and ' + lessons + ' narrated lessons</li><li>Knowledge checks, activities and patient scenarios</li><li>Unlimited practice ECGs</li><li>Unit quizzes, the final exam and a verifiable certificate</li><li>Lifetime access on any device</li></ul></div>' +
-      '<div class="enroll-price"><b>' + PRICE + '</b><span>one-time payment</span>' + enrollCta('Enroll now') + '<small>Secure checkout by Stripe</small></div></div></div></section>') +
+      '<ul class="tick-list"><li>All 9 units and ' + lessons + ' narrated lessons</li><li>Knowledge checks, activities and patient scenarios</li><li>Unlimited practice ECGs</li><li>Unit quizzes, the final exam and a verifiable certificate</li><li>A full year of access on any device</li></ul></div>' +
+      '<div class="enroll-price"><b>' + PRICE + '</b><span>for one year of access</span>' + enrollCta('Enroll now') + '<small>Secure checkout by Stripe</small></div></div></div></section>') +
 
       '<section class="section" style="padding-top:0"><div class="wrap"><div class="section-head"><div><h2>Questions</h2></div></div><div class="faq">' +
       faq('Who is this course for?', 'Paramedic and EMS students learning 3-lead rhythm interpretation, and anyone refreshing their ECG basics.') +
-      faq('How long do I have access?', 'For life. Pay once and come back any time, on any device — sign in with the link we email you.') +
+      faq('How long do I have access?', 'One full year from the day you enroll, on any device — sign in with the link we email you. Need more time? Renew for another year (renewing early adds the year to your end date). Your certificate stays verifiable after your access ends.') +
       faq('What do I need?', 'A modern web browser. Narration uses your browser’s built-in voice and works best in Chrome, Edge or Safari.') +
       faq('What does the certificate show?', 'Your name, the course, your final exam score and the date, with a certificate ID anyone can verify on this site. It records completion of this course — check with your program or agency whether it counts toward your requirements.') +
       faq('Can I try it first?', 'Yes — Unit 1, The Heart’s Electrical System, is free, including its quiz.') +
@@ -1215,12 +1232,14 @@
     main.innerHTML = pageHead(color, crumbs, title, sub) + '<section class="section"><div class="wrap"><div class="panel form-panel">' + inner + '</div></div></section>';
   }
   function viewEnroll() {
-    if (paid()) {
+    if (paid() && !(account.student && account.student.canRenew)) {
       formPage('#1b2a5b', '<a href="#home">Home</a> / Enroll', 'You’re already enrolled', 'Your full course is unlocked on this device.',
         '<p>Pick up where you left off.</p><a class="btn btn-primary" href="#course">Go to my course →</a>');
       return;
     }
-    formPage('#1b2a5b', '<a href="#home">Home</a> / Enroll', 'Enroll in Basic ECG Interpretation', PRICE + ' one-time · lifetime access to all 9 units, the final exam and your certificate.',
+    var renew = paid() || !!expiredOn();
+    formPage('#1b2a5b', '<a href="#home">Home</a> / Enroll', renew ? 'Renew your course access' : 'Enroll in Basic ECG Interpretation',
+      (renew ? PRICE + ' for another year of access' : PRICE + ' for one year of access') + ' to all 9 units, the final exam and your certificate.',
       '<form id="enroll-form" class="stack-form" autocomplete="on">' +
       '<label>Your name <small>(as it should appear on your certificate)</small><input name="name" type="text" maxlength="120" autocomplete="name" required></label>' +
       '<label>Email <small>(for your receipt and sign-in links)</small><input name="email" type="email" maxlength="254" autocomplete="email" required></label>' +
@@ -1256,7 +1275,7 @@
         history.replaceState(null, '', '#welcome');
         var first = (r.name || '').split(' ')[0];
         $('.page-head h1').textContent = 'You’re enrolled' + (first ? ', ' + first : '') + '!';
-        $('.page-head p').textContent = 'Thank you — the full course is unlocked. A receipt is on its way to ' + r.email + '.';
+        $('.page-head p').textContent = 'Thank you — the full course is unlocked' + (account.student && account.student.accessUntil ? ' until ' + niceDate(account.student.accessUntil) : ' for one year') + '. A receipt is on its way to ' + r.email + '.';
         var nu = UNITS[1];
         $('#welcome-msg').outerHTML = '<p>All 9 units, the final exam and your certificate are now open. To use the course on another device, choose <b>Sign in</b> there and we’ll email you a link.</p>' +
           '<div class="hero-cta"><a class="btn btn-primary" href="' + (unitPassed(UNITS[0]) && nu ? '#course-' + nu.id : '#course') + '">Start learning →</a><a class="btn btn-ghost" href="#course">Course overview</a></div>';
@@ -1279,7 +1298,8 @@
       api('claim', { body: { link_token: q.t } }).then(function (r) {
         if (r.status !== 200 || !r.token) {
           $('.page-head h1').textContent = 'This sign-in link didn’t work';
-          $('#signin-msg').innerHTML = esc(r.error || 'Please request a new link.') + ' <a href="#signin">Send a new link →</a>';
+          if (r.expired) { lsSet(EXPIRED_KEY, r.accessUntil || 'yes'); $('.page-head h1').textContent = 'Your access has ended'; }
+          $('#signin-msg').innerHTML = esc(r.error || 'Please request a new link.') + (r.expired ? ' <a href="#enroll">Renew for another year →</a>' : ' <a href="#signin">Send a new link →</a>');
           return;
         }
         signIn(r.token, function () { history.replaceState(null, '', '#course'); route(); });
@@ -1305,7 +1325,7 @@
     var mail = '<a href="mailto:' + SUPPORT + '">' + SUPPORT + '</a>';
     main.innerHTML = pageHead('#1b2a5b', '<a href="#home">Home</a> / Terms', 'Terms of Use & Refund Policy', 'For the Basic ECG Interpretation self-paced course from CSHealthED.') +
       '<section class="section"><div class="wrap"><div class="panel terms">' +
-      '<h2>Your purchase</h2><p>Enrollment is a one-time payment of ' + PRICE + ' (USD) for lifetime access to the full course: all ' + UNITS.length + ' units, the final exam and a certificate of completion. Payments are processed securely by Stripe; CSHealthED never sees or stores your card details.</p>' +
+      '<h2>Your purchase</h2><p>Enrollment is a one-time payment of ' + PRICE + ' (USD) for <b>one year of access</b> to the full course, starting the day you enroll: all ' + UNITS.length + ' units, the final exam and a certificate of completion. When the year ends you can renew for another year at the current price; renewing early adds the year to your end date. Your certificate stays on record and verifiable after your access ends. Payments are processed securely by Stripe; CSHealthED never sees or stores your card details.</p>' +
       '<h2>Refunds</h2><p>If the course isn’t right for you, email ' + mail + ' within <b>14 days</b> of purchase for a full refund, as long as a certificate has not been issued. Refunds go back to the original payment method, and course access ends when the refund is made. Unit 1 is free, so you can try the course before you buy.</p>' +
       '<h2>Your access</h2><p>Your enrollment is for you alone. Please don’t share your sign-in links or course content. You can use the course on any of your own devices by signing in with your email. Lesson progress is saved in each browser; your enrollment and certificate are kept on our server.</p>' +
       '<h2>Certificate</h2><p>The certificate records that you completed this course and passed its final exam (' + PASS + '% or higher). It is an educational course record, not a license, certification or clinical credential. Check with your program, employer or agency whether it counts toward your requirements. Anyone with your certificate ID can confirm it on our <a href="#verify">verification page</a>, which shows your name, score and completion date.</p>' +

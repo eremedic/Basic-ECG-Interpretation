@@ -2,7 +2,7 @@
 // Starts a Stripe Checkout for the full course and returns its URL.
 import { getDeps, missing } from '../lib/deps.mjs';
 import { cleanEmail, cleanName, json, readJson, safe } from '../lib/http.mjs';
-import { findStudent } from '../lib/students.mjs';
+import { accessUntil, canRenew, findStudent, hasAccess } from '../lib/students.mjs';
 
 export async function handle(req, deps) {
 	if (req.method !== 'POST') return json(405, { error: 'Use POST.' });
@@ -14,7 +14,10 @@ export async function handle(req, deps) {
 	if (!email || !name) return json(400, { error: 'Please enter your name and a valid email address.' });
 
 	const existing = await findStudent(deps.db, email);
-	if (existing?.paid_at) return json(409, { alreadyEnrolled: true, error: 'This email is already enrolled. We can email you a sign-in link.' });
+	if (hasAccess(existing) && !canRenew(existing)) {
+		const until = accessUntil(existing).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+		return json(409, { alreadyEnrolled: true, error: `This email is already enrolled, with access until ${until}. We can email you a sign-in link.` });
+	}
 
 	const lineItem = deps.priceId
 		? { price: deps.priceId, quantity: 1 }
@@ -24,7 +27,7 @@ export async function handle(req, deps) {
 					unit_amount: deps.priceCents,
 					product_data: {
 						name: 'Basic ECG Interpretation — full course',
-						description: 'Lifetime access: 9 narrated units, activities, quizzes, final exam and certificate.',
+						description: 'One year of access: 9 narrated units, activities, quizzes, final exam and certificate.',
 						images: [`${deps.siteUrl}/assets/stripe-course.png`]
 					}
 				},
@@ -52,7 +55,7 @@ export function checkoutText(deps) {
 	const terms = `${deps.siteUrl}/#terms`;
 	const text = {
 		submit: {
-			message: `One-time payment for lifetime access to all 9 units, the final exam and your certificate. After paying you'll return to the course with everything unlocked. [Terms and refund policy](${terms})`
+			message: `One payment for one year of access to all 9 units, the final exam and your certificate. After paying you'll return to the course with everything unlocked. [Terms and refund policy](${terms})`
 		},
 		after_submit: {
 			message: 'Thank you for enrolling! Taking you back to your course…'

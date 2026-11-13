@@ -3,7 +3,7 @@
 // Always answers the same way, so it can't reveal who is enrolled.
 import { getDeps, missing } from '../lib/deps.mjs';
 import { cleanEmail, json, readJson, safe } from '../lib/http.mjs';
-import { findStudent } from '../lib/students.mjs';
+import { findStudent, hasAccess } from '../lib/students.mjs';
 import { signToken } from '../lib/tokens.mjs';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -30,7 +30,7 @@ export async function handle(req, deps) {
 	const email = cleanEmail((await readJson(req))?.email);
 	if (!email) return json(400, { error: 'Please enter a valid email address.' });
 	const student = await findStudent(deps.db, email);
-	if (student?.paid_at) {
+	if (hasAccess(student)) {
 		const link = `${deps.siteUrl}/#signin?t=${encodeURIComponent(signToken('link', email, deps.secret))}`;
 		const { html, text } = signInEmail(student.name, link);
 		try {

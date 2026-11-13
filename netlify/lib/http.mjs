@@ -52,6 +52,8 @@ export function explainError(err) {
 		return { code: 'stripe_timeout', error: 'Payment setup problem: Stripe didn’t answer in time. Please try again in a moment.' };
 	if (type.startsWith('Stripe'))
 		return { code: 'stripe', error: 'Payment setup problem (Stripe): ' + msg };
+	if (/access_expires_at/.test(msg))
+		return { code: 'db_migration', error: 'Database setup problem: the access_expires_at column is missing. Run supabase/migrations/0002_one_year_access.sql in the Supabase SQL Editor.' };
 	if (/does not exist|schema cache|ecg_course_students/i.test(msg) && /relation|table|schema/i.test(msg))
 		return { code: 'db_table', error: 'Database setup problem: the ecg_course_students table wasn’t found. Run supabase/migrations/0001_ecg_course_students.sql in the Supabase SQL Editor of the project in SUPABASE_URL.' };
 	if (/Invalid API key|JWT|apikey|permission denied|No API key/i.test(msg))

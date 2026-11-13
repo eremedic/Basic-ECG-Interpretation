@@ -4,7 +4,7 @@
 import crypto from 'node:crypto';
 import { getDeps, missing } from '../lib/deps.mjs';
 import { bearer, cleanName, json, readJson, safe } from '../lib/http.mjs';
-import { findStudent, issueCertificate } from '../lib/students.mjs';
+import { findStudent, hasAccess, issueCertificate } from '../lib/students.mjs';
 import { verifyToken } from '../lib/tokens.mjs';
 import { studentView } from './course-content.mjs';
 
@@ -23,6 +23,7 @@ export async function handle(req, deps) {
 	if (!(score >= PASS && score <= 100)) return json(400, { error: `A final exam score of ${PASS}% or higher is required.` });
 	const student = await findStudent(deps.db, email);
 	if (!student?.paid_at) return json(403, { error: 'No enrollment was found for this account.' });
+	if (!hasAccess(student)) return json(403, { expired: true, error: 'Your one-year access has ended. Enroll again to renew it.' });
 	const updated = await issueCertificate(deps.db, student, name, score, crypto.randomUUID());
 	return json(200, { student: studentView(updated) });
 }
