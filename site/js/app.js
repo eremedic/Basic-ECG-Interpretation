@@ -540,7 +540,7 @@
       if (t === 'classify') return actFrame(id, 'Strip activity', d.title, d.prompt);
       if (t === 'drill') return actFrame(id, 'Calculation drill', d.title, d.kind === 'boxes' ? 'Convert between boxes and time. Get three right to complete the drill — then keep going as long as you like.' : 'Calculate each heart rate. Get three right to complete the drill — then keep going as long as you like.');
       if (t === 'measure') return actFrame(id, 'Caliper activity', d.title, d.what === 'pr' ? 'Turn on Calipers, measure from the start of a P wave to the start of the QRS, and enter the PR interval in seconds. Complete two strips.' : 'Turn on Calipers, measure from one R wave to the next, and enter the R-to-R interval in seconds. Complete two strips.');
-      if (t === 'walk') return actFrame(id, 'Guided worksheet', 'Five steps, one strip', 'Answer each of the five questions about the strip, then name the rhythm and check your work.');
+      if (t === 'walk') return actFrame(id, 'Guided worksheet', 'Five steps, one strip', d.name === false ? 'Answer each of the five questions about the strip, then check your work.' : 'Answer each of the five questions about the strip, then name the rhythm and check your work.');
       if (t === 'case') return '<section class="activity case" id="' + id + '"><div class="act-head"><span class="act-tag">Patient scenario</span><b>' + esc(d.title) + '</b><span class="act-status"></span></div>' +
         '<p class="narr case-text">' + esc(d.text) + '</p><div class="vitals">' + Object.keys(d.vitals || {}).map(function (v) { return '<span class="chip"><b>' + esc(v) + '</b> ' + esc(d.vitals[v]) + '</span>'; }).join(' ') + '</div>' +
         '<div class="case-strip"></div><div class="case-qs"></div></section>';
@@ -1132,7 +1132,9 @@
     $('input', body).addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); check(); } });
     load();
   }
-  function walkActivity(el, pool, done) {
+  function walkActivity(el, d, done) {
+    // d: a list of rhythms, or {rhythms, name: false} to describe the strip without naming it
+    var pool = Array.isArray(d) ? d : d.rhythms, naming = Array.isArray(d) || d.name !== false;
     var body = $('.act-body', el), viewer = null, last = null, rid, checked;
     var RATE = { slow: 'Slow (under 60)', normal: 'Normal (60–100)', fast: 'Fast (over 100)' };
     function sel(name, label, opts) {
@@ -1145,7 +1147,7 @@
       var names = {}; pool.forEach(function (r) { names[r] = RHYTHMS[r].name; });
       $('.wk-form', el).innerHTML = sel('rate', '1 · Rate', RATE) + sel('reg', '2 · Rhythm', { regular: 'Regular', irregular: 'Irregular' }) + sel('p', '3 · P waves', LAB_LABELS.p) +
         sel('pr', '4 · PR interval', { normal: 'Normal (0.12–0.20 s)', long: 'Long (over 0.20 s)', none: 'Not measurable / no P waves', short: 'Short (under 0.12 s)' }) +
-        sel('qrs', '5 · QRS', { narrow: LAB_LABELS.qrs.narrow, wide: LAB_LABELS.qrs.wide }) + sel('name', 'Rhythm', names) +
+        sel('qrs', '5 · QRS', { narrow: LAB_LABELS.qrs.narrow, wide: LAB_LABELS.qrs.wide }) + (naming ? sel('name', 'Rhythm', names) : '') +
         '<div class="act-btns"><button class="btn btn-navy btn-sm" data-w-act="check">Check my worksheet</button><button class="btn btn-ghost btn-sm" data-w-act="new">New strip</button></div>';
       $('.act-fb', el).innerHTML = '';
     }
@@ -1157,24 +1159,32 @@
     }
     function check() {
       var sig = viewer.sig(), truth = labTruthRhythm(rid, sig), val = function (n) { return $('[data-w="' + n + '"]', el).value; };
-      if (['rate', 'reg', 'p', 'pr', 'qrs', 'name'].some(function (n) { return !val(n); })) { $('.act-fb', el).innerHTML = '<p class="lf-mark bad">Answer all five steps and name the rhythm first.</p>'; return; }
+      var steps = naming ? ['rate', 'reg', 'p', 'pr', 'qrs', 'name'] : ['rate', 'reg', 'p', 'pr', 'qrs'];
+      if (steps.some(function (n) { return !val(n); })) { $('.act-fb', el).innerHTML = '<p class="lf-mark bad">' + (naming ? 'Answer all five steps and name the rhythm first.' : 'Answer all five steps first.') + '</p>'; return; }
       var rateCat = truth.rate == null ? null : truth.rate < 60 ? 'slow' : truth.rate > 100 ? 'fast' : 'normal';
       var rows = [
         ['rate', rateCat ? [rateCat] : null, rateCat ? RATE[rateCat] + ' — about ' + truth.rate + '/min' : 'not measurable'],
         ['reg', truth.reg, truth.reg.map(function (k) { return LAB_LABELS.reg[k]; }).join(' / ')],
         ['p', truth.p, truth.p.map(function (k) { return LAB_LABELS.p[k]; }).join(' / ')],
         ['pr', prTruth(rid), prTruth(rid).map(function (k) { return { normal: 'Normal', long: 'Long', none: 'Not measurable', short: 'Short' }[k]; }).join(' / ')],
-        ['qrs', truth.qrs, truth.qrs.map(function (k) { return LAB_LABELS.qrs[k]; }).join(' / ')],
-        ['name', [rid], RHYTHMS[rid].name]
+        ['qrs', truth.qrs, truth.qrs.map(function (k) { return LAB_LABELS.qrs[k]; }).join(' / ')]
       ];
+      if (naming) rows.push(['name', [rid], RHYTHMS[rid].name]);
       var right = 0;
       rows.forEach(function (r) {
         var v = val(r[0]), m = $('.lf-mark[data-for="' + r[0] + '"]', el), ok = r[1] ? (v && r[1].indexOf(v) >= 0) : true;
         if (ok) right++;
         m.className = 'lf-mark ' + (ok ? 'ok' : 'bad'); m.textContent = ok ? '✓' : '✗ ' + r[2];
       });
-      viewer.reveal();
-      $('.act-fb', el).innerHTML = '<div class="explain"><div class="verdict ' + (right === rows.length ? 'ok' : 'bad') + '">' + right + ' of ' + rows.length + ' correct — ' + esc(RHYTHMS[rid].name) + '</div>' + criteriaTable(RHYTHMS[rid]) + '</div>';
+      if (naming) {
+        viewer.reveal();
+        $('.act-fb', el).innerHTML = '<div class="explain"><div class="verdict ' + (right === rows.length ? 'ok' : 'bad') + '">' + right + ' of ' + rows.length + ' correct — ' + esc(RHYTHMS[rid].name) + '</div>' + criteriaTable(RHYTHMS[rid]) + '</div>';
+      } else {
+        // describe only: show the correct description, without naming the rhythm
+        $('.act-fb', el).innerHTML = '<div class="explain"><div class="verdict ' + (right === rows.length ? 'ok' : 'bad') + '">' + right + ' of ' + rows.length + ' steps correct</div>' +
+          '<p style="margin:6px 0 0"><b>This strip:</b> ' + rows.map(function (r) { return esc({ rate: 'Rate', reg: 'Rhythm', p: 'P waves', pr: 'PR', qrs: 'QRS' }[r[0]]) + ' — ' + esc(r[2]); }).join('; ') + '.</p>' +
+          '<p class="hint" style="margin:6px 0 0">You will learn which rhythm each pattern describes in the rhythm units. Try another strip with <b>New strip</b>.</p></div>';
+      }
       if (!checked) { checked = true; done(); }
     }
     el.addEventListener('click', function (e) { var b = e.target.closest('[data-w-act]'); if (!b) return; if (b.dataset.wAct === 'check') check(); else load(); });

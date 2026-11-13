@@ -18,7 +18,8 @@
  *   ['classify', {title, prompt, options: [...], items: {rhythm: option}, n}]   live strips
  *   ['drill', {title, kind: 'boxes' | 'rate'}]          generated calculation problems
  *   ['measure', {title, what: 'pr' | 'rr', pool: [...]}] caliper measurement on live strips
- *   ['walk', [rhythm, ...]]         guided five-step worksheet on live strips
+ *   ['walk', [rhythm, ...] | {rhythms, name: false}]   guided five-step worksheet on live strips
+ *                                   (name: false = describe only; don't ask for the rhythm name)
  *   ['rate']                        rate estimation on live strips
  *   ['practice', [rhythm, ...]]     unlimited strip identification
  *   ['case', {title, text, vitals, rhythm, qs: [{q, o, a, why}]}]   patient scenario
@@ -400,11 +401,22 @@
           ['kc', { q: 'There are more P waves than QRS complexes. What should you suspect?', o: ['An AV block', 'Sinus tachycardia', 'Ventricular fibrillation', 'Artifact only'], a: 0, why: 'Extra P waves that are not followed by a QRS mean some impulses are not getting through the AV node — an AV block.' }]
         ] },
         { id: 'together', title: 'Putting it together', min: 10, practice: true, blocks: [
-          ['p', 'Here is the whole process on one strip. Suppose the rate is 50 per minute, the rhythm is regular, an upright P wave comes before every QRS, the PR is 0.16 seconds and the QRS is narrow. Every rule of sinus rhythm is met except the rate, so this is <b>sinus bradycardia at 50</b>.'],
-          ['p', 'Now suppose the rhythm is irregularly irregular at 110, there are no P waves, and the QRS is narrow. No P waves plus an irregularly irregular rhythm means <b>atrial fibrillation with a rapid ventricular response</b>.'],
-          ['p', 'Work through the guided worksheet below. Answer each of the five questions, then name the rhythm. Complete at least one strip to finish this lesson — then try a few more.'],
-          ['walk', ['nsr', 'sbrady', 'stach', 'afib', 'firstDeg', 'junctEscape', 'idio']],
-          ['kc', { q: 'A strip is regular at 50/min with an upright P before every QRS, a PR of 0.16 s and a narrow QRS. What is it?', o: ['Sinus bradycardia', 'Normal sinus rhythm', 'Junctional escape rhythm', 'First-degree AV block'], a: 0, why: 'All the sinus criteria are met, and the rate is under 60 — sinus bradycardia.' }]
+          ['p', 'Here is the whole process on one strip. Work through the five questions in order and note what you find:'],
+          ['list', [
+            '<b>Rate:</b> 50/min — slow (under 60).',
+            '<b>Rhythm:</b> regular — the R waves are evenly spaced.',
+            '<b>P waves:</b> upright and alike, one before every QRS.',
+            '<b>PR interval:</b> 0.16 s — normal.',
+            '<b>QRS:</b> 0.08 s — narrow.'
+          ]],
+          ['p', 'That description is the foundation of every interpretation. Notice that it doesn’t name the rhythm yet. In the rhythm units ahead you will learn which pattern of findings matches each rhythm, starting with the sinus rhythms in Unit 4.'],
+          ['p', 'Here is a second strip described the same way: the rate is about 110/min — fast; the rhythm is irregularly irregular; there are no identifiable P waves, only a wavy baseline; the PR interval can’t be measured; and the QRS is narrow. Each finding is a clue. Once you learn the criteria, the clues together will point to one rhythm.'],
+          ['callout', 'Describe before you name. A complete description — rate, rhythm, P waves, PR interval and QRS — keeps you from jumping to a conclusion from one striking feature.'],
+          ['p', 'Work through the guided worksheet below. Answer the five questions for each strip, then check your work. Complete at least one strip to finish this lesson — then try a few more.'],
+          ['walk', { rhythms: ['nsr', 'sbrady', 'stach', 'afib', 'firstDeg', 'junctEscape', 'idio'], name: false }],
+          ['kc', { q: 'A strip is regular at 50/min, with an upright P wave before every QRS, a PR interval of 0.16 s and a QRS of 0.08 s. Which finding is outside the normal range?', o: ['The rate — it is slow (under 60/min)', 'The PR interval — it is long', 'The QRS — it is wide', 'Nothing — every finding is normal'], a: 0, why: 'A PR of 0.16 s is within 0.12–0.20 s and a QRS of 0.08 s is narrow. Only the rate, 50/min, is outside the normal 60–100/min.' }],
+          ['kc', { q: 'Which strip description is complete — it answers all five questions?', o: ['Rate 110/min; irregularly irregular; no identifiable P waves; PR not measurable; QRS 0.08 s (narrow)', 'Rate 110/min with a narrow QRS', 'An irregular rhythm with no P waves', 'Fast and irregular'], a: 0, why: 'A complete description covers the rate, the rhythm (regularity), the P waves, the PR interval and the QRS width. The others leave steps out.' }],
+          ['kc', { q: 'In the five-step approach, which step comes right after deciding whether the rhythm is regular?', o: ['Look at the P waves', 'Measure the QRS', 'Calculate the rate', 'Measure the PR interval'], a: 0, why: 'The order is rate, rhythm (regularity), P waves, PR interval, then QRS width.' }]
         ] }
       ],
       bank: [
