@@ -11,7 +11,19 @@ On Instagram and TikTok, put the link in your bio and say "link in bio".
 | `4-story-1080x1920.png` | Instagram and Facebook Stories, TikTok, Reels cover |
 | `5-facebook-linkedin-1200x630.png` | Facebook and LinkedIn link posts, X/Twitter, event or page banner |
 
-To edit the text or make more images, change `src/posts.html` and run `node src/render.cjs` (needs Playwright).
+**Instagram feed:** use the portrait versions in `instagram-portrait/` (1080×1350). Instagram's profile grid now shows posts taller than square, so these fill it best. The square versions are for Facebook and LinkedIn.
+
+**Profile and page setup:** see `brand/`:
+
+| File | Use it for |
+| --- | --- |
+| `brand/profile-picture-1080x1080.png` | Profile picture for the Facebook Page and Instagram (it's shown as a circle) |
+| `brand/facebook-cover-1640x624.png` | Facebook Page cover photo. The text sits in the middle, so it isn't cut off on phones. |
+| `brand/instagram-highlights/*.png` | Instagram Story Highlight covers: Start here, Course, Rhythms, ECG tips, Quiz, Certificate, FAQ |
+
+How to add a highlight cover: post a Story, tap **Highlight**, then **New**. Name it, for example "Start here". Then open the highlight and choose **Edit highlight → Edit cover**. To use one of these icons, first post the cover image as a Story (you can hide or archive it afterwards), then pick it as the cover. The highlight's name is typed in Instagram and shows under the circle, so the images have no text.
+
+To edit the text or make more images, change `src/posts.html` or `src/brand.html`, then run `node src/render.cjs`, `node src/render.cjs --portrait` or `node src/render-brand.cjs` (needs Playwright).
 
 ---
 

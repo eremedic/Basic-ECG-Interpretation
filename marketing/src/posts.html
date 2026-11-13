@@ -33,6 +33,20 @@ p.lead{font-size:34px;line-height:1.4;color:#d5ddf0;margin:26px 0 0}
 .small{font-size:24px;color:#aab6d6}
 .pills-sm .pill{font-size:23px;padding:10px 17px}
 .stripe-bar{position:absolute;left:0;right:0;bottom:0;height:12px;background:linear-gradient(90deg,#43a047 0 25%,#1e88e5 25% 50%,#fb8c00 50% 75%,#e53935 75%)}
+/* Instagram portrait (4:5) versions: ?portrait=1 */
+.portrait .sq{height:1350px}
+.portrait #launch .kick{margin-top:150px!important}
+.portrait #launch h1{font-size:108px}
+.portrait #launch .mon{margin-top:80px!important}
+.portrait #launch .price{margin-top:80px}
+.portrait #quiz .kick{margin-top:130px!important}
+.portrait #quiz h2{font-size:84px}
+.portrait #quiz .paper{margin-top:80px!important}
+.portrait #quiz p.lead{margin-top:60px;font-size:36px!important}
+.portrait #inside h2{margin-top:130px!important;font-size:82px}
+.portrait #inside .list{margin-top:70px;gap:44px}
+.portrait #inside .list li{font-size:36px}
+.portrait .foot{bottom:100px}
 </style></head><body>
 
 <!-- 1. Launch -->
@@ -115,8 +129,9 @@ function strip(id, rhythm, seed, width, mode, seconds, band) {
   if (el) el.textContent = hr;
 }
 var q = new URLSearchParams(location.search);
+if (q.get('portrait')) document.body.classList.add('portrait');
 strip('c-launch', 'nsr', 11, 860, 'monitor', 4, 22);
-strip('c-quiz', 'wenck', +(q.get('seed') || 7), 876, 'paper', 6, 26);
+strip('c-quiz', 'wenck', +(q.get('seed') || 7), 876, 'paper', 6, q.get('portrait') ? 34 : 26);
 strip('c-story', 'svt', 3, 860, 'monitor', 4, 26);
 strip('c-banner', 'nsr', 5, 420, 'monitor', 3, 22);
 document.title = 'ready';
