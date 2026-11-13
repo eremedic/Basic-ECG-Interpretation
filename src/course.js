@@ -367,7 +367,7 @@
           ['p', 'After the five steps, <b>look at the patient</b>: pulse, perfusion, mental status and blood pressure. A rhythm causes a problem when it produces any of these signs of <b>instability</b>:'],
           ['html', UNSTABLE, 'Hypotension or signs of shock. Altered mental status. Ischemic chest pain. Acute heart failure.'],
           ['callout', 'Treatment decisions depend on whether the patient is stable or unstable — not on the monitor alone. <b>Treat the patient, not the monitor.</b> <b>Symptomatic does not mean unstable.</b>'],
-          ['kc', { q: 'A rhythm has a QRS of 0.16 s. What does this suggest?', o: ['A ventricular origin or abnormal conduction through the ventricles', 'A normal sinus impulse', 'A junctional rhythm with normal conduction', 'Atrial flutter'], a: 0, why: 'A QRS of 0.12 s or more is wide — the impulse is spreading slowly through the ventricles.' }],
+          ['kc', { q: 'A rhythm has a QRS of 0.16 s. What does this suggest?', o: ['The impulse started in the ventricles, or is spreading abnormally through them', 'The impulse traveled down the normal pathway', 'The heart rate is slow', 'The rhythm is irregular'], a: 0, why: 'A QRS of 0.12 s or more is wide — the impulse is spreading slowly through the ventricles instead of down the fast normal pathway.' }],
           ['kc', { q: 'Which finding makes a patient with a fast rhythm unstable?', o: ['New confusion and low blood pressure', 'A heart rate of 110', 'Mild anxiety', 'A normal blood pressure with palpitations'], a: 0, why: 'Hypotension, altered mental status, ischemic chest pain and acute heart failure are the signs of instability.' }]
         ] },
         { id: 'rate', title: 'Calculating heart rate', min: 12, blocks: [
@@ -388,7 +388,7 @@
             ['afib', 'Irregularly irregular — no pattern at all. Think atrial fibrillation.']
           ]],
           ['classify', { title: 'Classify the regularity', prompt: 'Is this rhythm regular, regularly irregular or irregularly irregular?', options: ['Regular', 'Regularly irregular', 'Irregularly irregular'], items: { nsr: 0, sbrady: 0, stach: 0, idio: 0, bigeminy: 1, afib: 2 }, n: 4 }],
-          ['p', 'Then find the P waves and measure the PR interval. Are the P waves upright and identical? Is the PR normal, long, shortened or changing? Are there <b>more P waves than QRS complexes</b>? If so, some impulses are not getting through the AV node — an <b>AV block</b>.'],
+          ['p', 'Then find the P waves and measure the PR interval. Are the P waves upright and identical? Is the PR normal, long, shortened or changing? Are there <b>more P waves than QRS complexes</b>? If so, some atrial impulses are not reaching the ventricles — an important finding to include in your description. The rhythm units explain what causes it.'],
           ['compare', [
             ['nsr', 'Upright P before every QRS, normal PR, narrow QRS.'],
             ['firstDeg', 'P before every QRS, but the PR is longer than 0.20 seconds.'],
@@ -397,8 +397,8 @@
           ]],
           ['classify', { title: 'Narrow or wide?', prompt: 'Is the QRS narrow (under 0.12 s) or wide (0.12 s or more)?', options: ['Narrow', 'Wide'], items: { nsr: 0, svt: 0, junctEscape: 0, afib: 0, idio: 1, vt: 1, vpaced: 1 }, n: 4 }],
           ['h', 'Naming the rhythm'],
-          ['p', 'Name the <b>underlying rhythm first</b>, then add anything extra. For example: “Sinus rhythm with first-degree AV block and occasional PVCs.” Include the rate when you report it.'],
-          ['kc', { q: 'There are more P waves than QRS complexes. What should you suspect?', o: ['An AV block', 'Sinus tachycardia', 'Ventricular fibrillation', 'Artifact only'], a: 0, why: 'Extra P waves that are not followed by a QRS mean some impulses are not getting through the AV node — an AV block.' }]
+          ['p', 'Report your findings in the same order every time — rate, rhythm, P waves, PR interval, QRS. For example: “Rate 72, regular, an upright P wave before every QRS, PR 0.24 s, QRS 0.08 s.” Mention anything extra you notice, such as an early beat. Once you learn to name rhythms, you will start your report with the rhythm’s name and keep these findings to back it up.'],
+          ['kc', { q: 'There are more P waves than QRS complexes. What does this tell you?', o: ['Some atrial impulses are not reaching the ventricles', 'The heart rate is too fast', 'The QRS is wide', 'The rhythm must be regular'], a: 0, why: 'Each P wave is an atrial impulse. A P wave with no QRS after it means that impulse did not get through to the ventricles. Include it in your description — the rhythm units explain what causes it.' }]
         ] },
         { id: 'together', title: 'Putting it together', min: 10, practice: true, blocks: [
           ['p', 'Here is the whole process on one strip. Work through the five questions in order and note what you find:'],
@@ -425,13 +425,13 @@
         Q('rate', 'There are 3 large boxes between R waves in a regular rhythm. What is the rate?', ['100/min', '150/min', '75/min', '60/min'], '300 ÷ 3 = 100/min.'),
         Q('rate', 'There are 4 large boxes between R waves in a regular rhythm. What is the rate?', ['75/min', '60/min', '100/min', '50/min'], '300 ÷ 4 = 75/min.'),
         Q('rate', 'There are 15 small boxes between R waves in a regular rhythm. What is the rate?', ['100/min', '150/min', '75/min', '60/min'], '1500 ÷ 15 = 100/min.'),
-        Q('regularity', '“Irregularly irregular” means:', ['The R–R intervals vary with no pattern', 'The rhythm speeds up and slows down with breathing', 'Every other beat is early', 'The rhythm is regular but fast'], 'No pattern at all — the classic finding in atrial fibrillation.'),
+        Q('regularity', '“Irregularly irregular” means:', ['The R–R intervals vary with no pattern', 'The rhythm speeds up and slows down with breathing', 'Every other beat is early', 'The rhythm is regular but fast'], 'No pattern at all: every R–R interval is different. Note it in your description — the rhythm units show which rhythms cause it.'),
         Q('steps', 'A wide QRS is one that measures:', ['0.12 s or more', 'More than 0.20 s', 'Less than 0.12 s', 'More than 0.04 s'], 'A QRS of 0.12 s (3 small boxes) or more is wide.'),
-        Q('steps', 'A heart rate under 60/min is called:', ['Bradycardia', 'Tachycardia', 'Normal', 'Fibrillation'], 'Bradycardia is under 60/min; tachycardia is over 100/min.'),
+        Q('steps', 'A heart rate under 60/min is called:', ['Bradycardia', 'Tachycardia', 'Normal', 'Irregular'], 'Bradycardia is under 60/min; tachycardia is over 100/min.'),
         Q('steps', 'What should you do before treating any rhythm on the monitor?', ['Assess the patient’s pulse and perfusion', 'Print a 30-second strip', 'Change to Lead III', 'Give oxygen to every patient'], 'Treat the patient, not the monitor. Correlate every rhythm with the clinical picture.'),
         Q('steps', 'Which is a sign that a patient is unstable?', ['Hypotension with altered mental status', 'A heart rate of 105 with normal blood pressure', 'Mild palpitations', 'A narrow QRS'], 'Hypotension or shock, altered mental status, ischemic chest pain and acute heart failure are signs of instability.'),
-        Q('regularity', 'Which steps best help you identify an AV block?', ['The P waves and the PR interval', 'The QRS width only', 'The rate only', 'The T wave shape'], 'AV blocks are about the relationship between P waves and QRS complexes — look at the P waves and the PR.'),
-        Q('regularity', 'When you name a rhythm, what comes first?', ['The underlying rhythm', 'The ectopic beats', 'The treatment', 'The lead you used'], 'Name the underlying rhythm, then add findings — for example, “sinus rhythm with occasional PVCs.”')
+        Q('regularity', 'Which steps tell you whether every atrial impulse is reaching the ventricles?', ['The P waves and the PR interval', 'The QRS width only', 'The rate only', 'The T wave shape'], 'Look at the relationship between the P waves and the QRS complexes: a P before every QRS, a QRS after every P, and a consistent PR interval.'),
+        Q('regularity', 'In what order should you report your findings from a strip?', ['Rate, rhythm, P waves, PR interval, QRS', 'QRS, PR interval, P waves, rhythm, rate', 'Rhythm, QRS, rate, PR interval, P waves', 'Only the findings that look abnormal'], 'Use the same five steps in the same order every time, so nothing is missed: rate, rhythm (regularity), P waves, PR interval, then QRS.')
       ]
     },
 
