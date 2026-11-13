@@ -471,6 +471,36 @@
       '</div><div class="pager"><a class="btn btn-ghost" href="#course">← Course overview</a></div></div></section>';
   }
 
+  /* ---------- lesson videos: play while on screen ---------- */
+  // Muted lesson videos start when at least half of the video is visible and
+  // pause when scrolled away. Skipped when the device asks for reduced motion.
+  // If the student pauses a video, it stays paused until it leaves and comes back.
+  function autoplayVideos(root) {
+    var vids = $all('.lesson-video video', root);
+    if (!vids.length || !('IntersectionObserver' in window)) return;
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        var v = e.target;
+        if (e.isIntersecting && e.intersectionRatio >= 0.5) {
+          if (!v.dataset.userPaused) { v.muted = true; var pr = v.play(); if (pr && pr.catch) pr.catch(function () { /* autoplay blocked */ }); }
+        } else {
+          delete v.dataset.userPaused;
+          if (!v.paused) { v.dataset.autoPausing = '1'; v.pause(); }
+        }
+      });
+    }, { threshold: [0, 0.5] });
+    vids.forEach(function (v) {
+      v.addEventListener('pause', function () {
+        if (v.dataset.autoPausing) { delete v.dataset.autoPausing; return; }
+        if (!v.ended) v.dataset.userPaused = '1';
+      });
+      v.addEventListener('play', function () { delete v.dataset.userPaused; });
+      io.observe(v);
+    });
+    cleanup.push(function () { io.disconnect(); vids.forEach(function (v) { v.pause(); }); });
+  }
+
   /* ---------- lesson page ---------- */
   var ACT_TYPES = { match: 1, order: 1, sort: 1, classify: 1, drill: 1, measure: 1, walk: 1, case: 1 };
   function actFrame(id, tag, title, prompt) {
@@ -585,6 +615,7 @@
       }
     });
     after.forEach(function (f) { f(); });
+    autoplayVideos(main);
 
     function sync() {
       var left = tasks.filter(function (x) { return !x.done; });
