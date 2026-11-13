@@ -1,0 +1,123 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}html,body{margin:0;background:#888}
+.f{position:relative;overflow:hidden;color:#fff;font-family:Inter,sans-serif;margin:0 0 40px;
+  background:radial-gradient(circle at 85% 0%,#2b4185 0%,#1b2a5b 45%,#0e1a3d 100%)}
+.sq{width:1080px;height:1080px;padding:84px}
+.story{width:1080px;height:1920px;padding:110px 84px}
+.wide{width:1200px;height:630px;padding:56px 64px}
+.brand{display:flex;align-items:center;gap:18px}
+.brand img{height:84px}
+.brand .wm{font:900 44px Montserrat}.wm .h{color:#3fb7c9}.wm .e{color:#ff5a5f}
+.kick{text-transform:uppercase;letter-spacing:.16em;font-weight:700;font-size:26px;color:#9fd6df}
+h1{font:900 96px/1.02 Montserrat;margin:18px 0 0}h1 .r{color:#ff6b6f}
+h2{font:900 72px/1.05 Montserrat;margin:14px 0 0}
+p.lead{font-size:34px;line-height:1.4;color:#d5ddf0;margin:26px 0 0}
+.mon{background:#060b16;border:2px solid #24304d;border-radius:26px;padding:22px 24px;position:relative}
+.mon .lab{font-size:20px;letter-spacing:.12em;color:#3dff8f;opacity:.75;text-transform:uppercase}
+.mon .hr{position:absolute;right:30px;top:12px;font:800 60px Montserrat;color:#3dff8f;text-shadow:0 0 18px rgba(61,255,143,.5)}
+.mon .hr small{font-size:22px;margin-left:6px;opacity:.8}
+.price{display:flex;align-items:center;gap:22px;margin-top:40px}
+.price b{font:900 104px/1 Montserrat}
+.price span{font-size:28px;color:#d5ddf0;line-height:1.35}
+.cta{display:inline-block;background:#e0262b;color:#fff;font:800 36px Montserrat;padding:24px 40px;border-radius:18px;box-shadow:0 10px 30px rgba(224,38,43,.35)}
+.pill{display:inline-block;font-weight:700;font-size:26px;padding:12px 22px;border-radius:99px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25)}
+.free{background:#3dff8f;color:#0e1a3d;border:0}
+.paper{background:#fff;border-radius:22px;padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.list{list-style:none;padding:0;margin:34px 0 0;display:grid;gap:22px}
+.list li{display:flex;gap:22px;align-items:flex-start;font-size:33px;line-height:1.3;color:#e6ecfa}
+.list li i{flex:none;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-style:normal;font-weight:900;font-size:28px;background:#e0262b}
+.list li b{color:#fff}
+.foot{position:absolute;left:84px;right:84px;bottom:70px;display:flex;justify-content:space-between;align-items:center}
+.small{font-size:24px;color:#aab6d6}
+.pills-sm .pill{font-size:23px;padding:10px 17px}
+.stripe-bar{position:absolute;left:0;right:0;bottom:0;height:12px;background:linear-gradient(90deg,#43a047 0 25%,#1e88e5 25% 50%,#fb8c00 50% 75%,#e53935 75%)}
+</style></head><body>
+
+<!-- 1. Launch -->
+<div class="f sq" id="launch">
+  <div class="brand"><img src="emblem.png"><div class="wm">CS<span class="h">Health</span><span class="e">ED</span></div></div>
+  <div class="kick" style="margin-top:70px">New · Self-paced online course</div>
+  <h1>Basic ECG<br><span class="r">Interpretation</span></h1>
+  <div class="mon" style="margin-top:44px"><div class="lab">II · ECG · 25 mm/s</div><div class="hr"><span id="hr-launch"></span><small>bpm</small></div><canvas id="c-launch"></canvas></div>
+  <div class="price"><b>$49</b><span>12 months of access<br><b style="font:700 28px Inter;color:#3dff8f">Unit 1 is free</b></span></div>
+  <div class="stripe-bar"></div>
+</div>
+
+<!-- 2. Name that rhythm -->
+<div class="f sq" id="quiz">
+  <div class="brand"><img src="emblem.png"><div class="wm">CS<span class="h">Health</span><span class="e">ED</span></div></div>
+  <div class="kick" style="margin-top:60px">Rhythm check</div>
+  <h2>Can you name<br>this rhythm?</h2>
+  <div class="paper" style="margin-top:44px"><canvas id="c-quiz"></canvas></div>
+  <p class="lead" style="font-size:31px">Look at the PR intervals from beat to beat. 👀<br>Drop your answer in the comments.</p>
+  <div class="foot"><span class="pill">Answer in the caption ⬇️</span><span class="small">Basic ECG Interpretation</span></div>
+  <div class="stripe-bar"></div>
+</div>
+
+<!-- 3. What's inside -->
+<div class="f sq" id="inside">
+  <div class="brand"><img src="emblem.png"><div class="wm">CS<span class="h">Health</span><span class="e">ED</span></div></div>
+  <h2 style="margin-top:56px">What’s inside the<br><span style="color:#ff6b6f">ECG course</span></h2>
+  <ul class="list">
+    <li><i>🎧</i><span><b>Narrated lessons</b> — 9 units, 34 lessons, read aloud with the text highlighted</span></li>
+    <li><i>📈</i><span><b>Live practice ECGs</b> — a fresh, randomized strip every time</span></li>
+    <li><i>🧩</i><span><b>Hands-on activities</b> — calipers, matching, rate drills and patient scenarios</span></li>
+    <li><i>✅</i><span><b>Quizzes and a final exam</b> — then a certificate anyone can verify</span></li>
+  </ul>
+  <div class="foot"><span class="cta" style="font-size:30px;padding:20px 32px">Try Unit 1 free</span><span class="small" style="text-align:right">$49 · 12 months<br>of access</span></div>
+  <div class="stripe-bar"></div>
+</div>
+
+<!-- 4. Story -->
+<div class="f story" id="story">
+  <div class="brand"><img src="emblem.png" style="height:100px"><div class="wm" style="font-size:52px">CS<span class="h">Health</span><span class="e">ED</span></div></div>
+  <div class="kick" style="margin-top:130px;font-size:30px">For paramedic &amp; EMS students</div>
+  <h1 style="font-size:118px">Read ECGs<br>with <span class="r">confidence.</span></h1>
+  <p class="lead" style="font-size:40px">A self-paced, narrated course in 3-lead rhythm interpretation — from the heart’s wiring to AV blocks and pacemakers.</p>
+  <div class="mon" style="margin-top:70px"><div class="lab">II · ECG</div><div class="hr"><span id="hr-story"></span><small>bpm</small></div><canvas id="c-story"></canvas></div>
+  <div style="display:flex;gap:12px;flex-wrap:nowrap;margin-top:60px;font-size:0" class="pills-sm">
+    <span class="pill">9 units</span><span class="pill">34 lessons</span><span class="pill">Practice ECGs</span><span class="pill">Final exam</span><span class="pill">Certificate</span>
+  </div>
+  <div style="position:absolute;left:84px;right:84px;bottom:150px;text-align:center">
+    <div class="pill free" style="font-size:32px;padding:14px 28px">Unit 1 is FREE</div>
+    <div style="margin-top:34px"><span class="cta" style="font-size:46px;padding:30px 60px">Enroll · $49</span></div>
+    <div class="small" style="margin-top:26px;font-size:28px">12 months of access · link in bio</div>
+  </div>
+  <div class="stripe-bar" style="height:16px"></div>
+</div>
+
+<!-- 5. Wide banner (Facebook / LinkedIn / link previews) -->
+<div class="f wide" id="banner">
+  <div style="display:grid;grid-template-columns:1fr 470px;gap:40px;height:100%;align-items:center">
+    <div>
+      <div class="brand"><img src="emblem.png" style="height:62px"><div class="wm" style="font-size:32px">CS<span class="h">Health</span><span class="e">ED</span></div></div>
+      <h1 style="font-size:66px;margin-top:26px">Basic ECG<br><span class="r">Interpretation</span></h1>
+      <p class="lead" style="font-size:24px;margin-top:16px">Self-paced, narrated course for paramedic and EMS students. Practice ECGs, quizzes, final exam and certificate.</p>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:28px"><span class="cta" style="font-size:24px;padding:16px 26px">Enroll · $49</span><span class="pill free" style="font-size:20px">Unit 1 free</span></div>
+    </div>
+    <div class="mon"><div class="lab" style="font-size:15px">II · ECG</div><div class="hr" style="font-size:44px;top:10px"><span id="hr-banner"></span><small>bpm</small></div><canvas id="c-banner"></canvas></div>
+  </div>
+  <div class="stripe-bar" style="height:10px"></div>
+</div>
+
+<script src="ecg-engine.js"></script><script src="ecg-render.js"></script>
+<script>
+function strip(id, rhythm, seed, width, mode, seconds, band) {
+  var c = document.getElementById(id);
+  var sig = ECGEngine.generate(rhythm, seed, 12);
+  ECGRender.drawStrip(c, sig, { leads: ['II'], mode: mode, width: width, seconds: seconds, bandMM: band, compact: mode !== 'paper' });
+  // heart rate from the beats actually shown
+  var qs = sig.qrsTimes.filter(function (t) { return t < seconds; });
+  var hr = qs.length > 1 ? Math.round(60 * (qs.length - 1) / (qs[qs.length - 1] - qs[0])) : 0;
+  var el = document.getElementById(id.replace('c-', 'hr-'));
+  if (el) el.textContent = hr;
+}
+var q = new URLSearchParams(location.search);
+strip('c-launch', 'nsr', 11, 860, 'monitor', 4, 22);
+strip('c-quiz', 'wenck', +(q.get('seed') || 7), 876, 'paper', 6, 26);
+strip('c-story', 'svt', 3, 860, 'monitor', 4, 26);
+strip('c-banner', 'nsr', 5, 420, 'monitor', 3, 22);
+document.title = 'ready';
+</script></body></html>

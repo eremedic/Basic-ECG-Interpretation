@@ -59,3 +59,15 @@ const lessons = full.UNITS.reduce((n, u) => n + u.lessons.length, 0);
 console.log(
 	`Built course ${version}: ${full.UNITS.length} units, ${lessons} lessons; ${FREE_UNITS} unit free in site/js/course-preview.js, all in netlify/data/course-full.json.`
 );
+
+// Link previews (Facebook, LinkedIn, texts) need absolute image URLs. On Netlify,
+// point them at the deployed site (SITE_URL, else Netlify's URL).
+const siteUrl = (process.env.SITE_URL || process.env.URL || '').trim().replace(/\/+$/, '');
+if (/^https?:\/\/[^/]+$/i.test(siteUrl)) {
+	const indexPath = path.join(ROOT, 'site/index.html');
+	const html = fs.readFileSync(indexPath, 'utf8')
+		.replace(/(<meta (?:property|name)="(?:og|twitter):image" content=")assets\//g, `$1${siteUrl}/assets/`)
+		.replace(/(<meta property="og:image"[^>]*>)/, `$1\n  <meta property="og:url" content="${siteUrl}/">`);
+	fs.writeFileSync(indexPath, html);
+	console.log(`Link previews point at ${siteUrl}.`);
+}
