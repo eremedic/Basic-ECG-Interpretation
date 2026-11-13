@@ -225,7 +225,7 @@
   }
 
   function leadImg() {
-    return '<figure class="lead-figure"><img src="assets/3-lead-placement.webp" width="1536" height="1024" loading="lazy" decoding="async" ' +
+    return '<figure class="lead-figure"><img src="assets/3-lead-placement.webp" width="1536" height="1024" decoding="async" ' +
       'alt="3-lead ECG limb lead placement: RA (white) below the right clavicle, LA (black) below the left clavicle and LL (red) on the lower left abdomen, forming Einthoven’s triangle. Lead I runs from RA (negative) to LA (positive) and views the lateral wall; Lead II runs from RA to LL and Lead III from LA to LL, both inferior views."></figure>';
   }
 
@@ -730,22 +730,117 @@
       opts.done();
     }
   }
+  // Matching activity: drag each answer card onto the slot beside its term
+  // (mouse or touch), or tap a card and then tap a slot (also works with the
+  // keyboard). Cards can be moved between slots or dragged back to the bank.
   function matchActivity(el, d, done) {
     var answers = shuffle(d.pairs.map(function (p) { return p[1]; }));
-    $('.act-body', el).innerHTML = '<div class="m-grid">' + d.pairs.map(function (p, n) {
-      return '<div class="m-row" data-n="' + n + '"><span class="m-term">' + esc(p[0]) + '</span><select aria-label="' + esc(p[0]) + '"><option value="">Choose…</option>' +
-        answers.map(function (a) { return '<option>' + esc(a) + '</option>'; }).join('') + '</select><span class="m-mark" aria-hidden="true"></span></div>';
-    }).join('') + '</div>';
-    var rows = $all('.m-row', el);
-    function setMark(row, ok) { row.classList.toggle('ok', ok); row.classList.toggle('bad', !ok); $('.m-mark', row).textContent = ok ? '✓' : '✗'; }
+    var assign = d.pairs.map(function () { return null; }); // slot n -> answer index
+    var body = $('.act-body', el), sel = null, drag = null, marks = null, skipClick = false;
+    function locked() { var c = $('.act-btns [data-a="check"]', el); return c && c.disabled; }
+    function placed(ai) { return assign.indexOf(ai) >= 0; }
+    function chip(ai, where) {
+      return '<button type="button" class="m-chip' + (sel === ai ? ' sel' : '') + '" data-ai="' + ai + '" data-from="' + where + '"' +
+        ' aria-pressed="' + (sel === ai) + '">' + esc(answers[ai]) + '</button>';
+    }
+    function render() {
+      var bank = answers.map(function (x, ai) { return placed(ai) ? '' : chip(ai, 'bank'); }).join('');
+      body.innerHTML = '<p class="ord-hint">Drag each answer onto the matching term — or tap an answer, then tap its slot.</p>' +
+        '<div class="m-grid">' + d.pairs.map(function (p, n) {
+          var ai = assign[n], m = marks ? marks[n] : null;
+          return '<div class="m-row' + (m === true ? ' ok' : m === false ? ' bad' : '') + '" data-n="' + n + '"><span class="m-term">' + esc(p[0]) + '</span>' +
+            '<div class="m-slot' + (ai == null ? ' empty' : '') + '" data-slot="' + n + '" role="button" tabindex="0" aria-label="Slot for ' + esc(p[0]) + (ai == null ? ', empty' : ': ' + esc(answers[ai])) + '">' +
+            (ai == null ? '<span class="m-ph">Drop answer here</span>' : chip(ai, 'slot')) + '</div>' +
+            '<span class="m-mark" aria-hidden="true">' + (m === true ? '✓' : m === false ? '✗' : '') + '</span></div>';
+        }).join('') + '</div>' +
+        '<div class="m-bank" data-bank="1" aria-label="Answers">' + (bank || '<span class="m-ph">All answers placed. Drag one back here to remove it.</span>') + '</div>';
+    }
+    function put(ai, slot) { // slot index, or null for the bank
+      var from = assign.indexOf(ai);
+      if (slot == null) { if (from >= 0) assign[from] = null; }
+      else {
+        var prev = assign[slot];
+        if (from >= 0) assign[from] = prev; // swap when moving between slots
+        assign[slot] = ai;
+        if (marks) marks[slot] = null;
+      }
+      if (marks && from >= 0) marks[from] = null;
+      sel = null; render();
+    }
+    // tap / keyboard
+    body.addEventListener('click', function (e) {
+      if (skipClick) { skipClick = false; return; } // the click that ends a drag
+      if (locked()) return;
+      var c = e.target.closest('.m-chip'), sl = e.target.closest('[data-slot]'), bk = e.target.closest('[data-bank]');
+      if (c && sel == null) { sel = +c.dataset.ai; render(); var f = $('[data-ai="' + sel + '"]', body); if (f) f.focus(); return; }
+      if (c && sel === +c.dataset.ai) { sel = null; render(); return; }
+      if (sel != null && sl) return put(sel, +sl.dataset.slot);
+      if (sel != null && bk) return put(sel, null);
+      if (c) { sel = +c.dataset.ai; render(); }
+    });
+    body.addEventListener('keydown', function (e) {
+      var sl = e.target.closest('[data-slot]');
+      if (sl && !e.target.closest('.m-chip') && (e.key === 'Enter' || e.key === ' ') && sel != null && !locked()) { e.preventDefault(); put(sel, +sl.dataset.slot); }
+    });
+    // drag
+    body.addEventListener('pointerdown', function (e) {
+      var c = e.target.closest('.m-chip');
+      skipClick = false;
+      if (!c || locked() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      drag = { ai: +c.dataset.ai, x0: e.clientX, y0: e.clientY, id: e.pointerId, src: c, ghost: null, over: null };
+    });
+    body.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (!drag.ghost) {
+        if (Math.abs(e.clientX - drag.x0) + Math.abs(e.clientY - drag.y0) < 6) return;
+        try { body.setPointerCapture(e.pointerId); } catch (err) { /* pointer already released */ }
+        var r = drag.src.getBoundingClientRect();
+        drag.ghost = drag.src.cloneNode(true);
+        drag.ghost.className = 'm-chip m-ghost';
+        drag.ghost.style.width = r.width + 'px';
+        drag.dx = e.clientX - r.left; drag.dy = e.clientY - r.top;
+        document.body.appendChild(drag.ghost);
+        drag.src.classList.add('lifted');
+      }
+      drag.ghost.style.left = (e.clientX - drag.dx) + 'px';
+      drag.ghost.style.top = (e.clientY - drag.dy) + 'px';
+      // scroll the page when dragging near the top or bottom edge
+      // (only in the direction the card is being dragged)
+      if (e.clientY < 150 && e.clientY < drag.y0 - 20) window.scrollBy(0, -Math.ceil((150 - e.clientY) / 6));
+      else if (e.clientY > window.innerHeight - 60 && e.clientY > drag.y0 + 20) window.scrollBy(0, Math.ceil((e.clientY - window.innerHeight + 60) / 6));
+      var under = document.elementFromPoint(e.clientX, e.clientY);
+      var tgt = under && (under.closest('[data-slot]') || under.closest('[data-bank]'));
+      if (tgt && !body.contains(tgt)) tgt = null;
+      if (drag.over !== tgt) { if (drag.over) drag.over.classList.remove('hover'); if (tgt) tgt.classList.add('hover'); drag.over = tgt; }
+    });
+    function endDrag(e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      var dd = drag; drag = null;
+      if (!dd.ghost) return; // a tap: handled by click
+      dd.ghost.remove();
+      skipClick = true;
+      if (dd.over && dd.over.dataset.slot != null) put(dd.ai, +dd.over.dataset.slot);
+      else if (dd.over) put(dd.ai, null);
+      else render();
+    }
+    body.addEventListener('pointerup', endDrag);
+    body.addEventListener('pointercancel', endDrag);
+    cleanup.push(function () { $all('.m-ghost').forEach(function (g) { g.remove(); }); });
+    render();
     checkFlow(el, {
-      complete: function () { return rows.every(function (r) { return $('select', r).value; }); },
+      complete: function () { return assign.every(function (x) { return x != null; }); },
       mark: function () {
-        var right = 0;
-        rows.forEach(function (r) { var ok = $('select', r).value === d.pairs[+r.dataset.n][1]; if (ok) right++; setMark(r, ok); });
-        return { right: right, total: rows.length };
+        marks = assign.map(function (ai, n) { return answers[ai] === d.pairs[n][1]; });
+        render();
+        return { right: marks.filter(Boolean).length, total: marks.length };
       },
-      reveal: function () { rows.forEach(function (r) { $('select', r).value = d.pairs[+r.dataset.n][1]; setMark(r, true); }); },
+      reveal: function () {
+        assign = d.pairs.map(function (p) { return answers.indexOf(p[1]); });
+        // duplicates: give each slot its own card
+        var used = {};
+        assign = d.pairs.map(function (p) { for (var i = 0; i < answers.length; i++) if (answers[i] === p[1] && !used[i]) { used[i] = 1; return i; } return null; });
+        marks = assign.map(function () { return true; }); sel = null; render();
+      },
       done: done
     });
   }
