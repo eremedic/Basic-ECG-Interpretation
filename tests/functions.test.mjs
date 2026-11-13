@@ -212,3 +212,11 @@ test('SUPABASE_URL paste mistakes are corrected', () => {
 		assert.equal(supabaseOrigin(v), want, v);
 	assert.equal(explainError(new Error('findStudent: Invalid path specified in request URL')).code, 'db_url');
 });
+
+import { siteOrigin } from '../netlify/lib/deps.mjs';
+test('SITE_URL gets a scheme and loses extras', () => {
+	for (const v of ['ecg.netlify.app', 'https://ecg.netlify.app/', ' ecg.netlify.app/#home', 'http://ecg.netlify.app'.replace('http:', 'https:')])
+		assert.equal(siteOrigin(v), 'https://ecg.netlify.app', v);
+	assert.equal(siteOrigin(''), '');
+	assert.equal(siteOrigin('nonsense'), '');
+});

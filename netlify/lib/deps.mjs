@@ -24,6 +24,19 @@ export function supabaseOrigin(raw) {
 	}
 }
 
+/** SITE_URL as https://host (adds a missing https://, drops a trailing slash, path or #). */
+export function siteOrigin(raw) {
+	let v = String(raw || '').trim();
+	if (!v) return '';
+	if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+	try {
+		const u = new URL(v);
+		return u.hostname.includes('.') || u.hostname === 'localhost' ? u.origin : '';
+	} catch {
+		return '';
+	}
+}
+
 function timedFetch(ms) {
 	return (url, opts = {}) => {
 		const t = AbortSignal.timeout(ms);
@@ -46,7 +59,7 @@ export function getDeps() {
 			: null,
 		secret: env.ACCESS_TOKEN_SECRET || '',
 		webhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
-		siteUrl: (env.SITE_URL || env.URL || '').replace(/\/$/, ''),
+		siteUrl: siteOrigin(env.SITE_URL) || siteOrigin(env.URL),
 		priceId: env.STRIPE_PRICE_ID || '',
 		priceCents: Number(env.COURSE_PRICE_CENTS) || 4900,
 		emailFrom: env.EMAIL_FROM || 'CSHealthED <no-reply@cshealthed.com>',
