@@ -1,0 +1,18 @@
+{
+	"name": "basic-ecg-interpretation",
+	"private": true,
+	"version": "1.0.0",
+	"description": "CSHealthED Basic ECG Interpretation: a self-paced, narrated ECG course with Stripe enrollment.",
+	"type": "module",
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"test": "node --test tests/*.test.mjs"
+	},
+	"engines": {
+		"node": ">=20"
+	},
+	"dependencies": {
+		"@supabase/supabase-js": "^2.45.0",
+		"stripe": "^17.0.0"
+	}
+}

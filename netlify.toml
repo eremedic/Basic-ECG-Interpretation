@@ -1,0 +1,39 @@
+# CSHealthED Basic ECG Interpretation — Netlify site.
+# The build splits the course into a free preview (Unit 1, public) and the
+# full course (served only to enrolled students by a function).
+[build]
+  command = "npm run build"
+  publish = "site"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Server-only keys are read by functions at run time; never by the site.
+  SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET,SUPABASE_SERVICE_ROLE_KEY,ACCESS_TOKEN_SECRET,RESEND_API_KEY"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "SAMEORIGIN"
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "no-cache"
