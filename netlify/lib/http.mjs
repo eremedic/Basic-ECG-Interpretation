@@ -48,13 +48,17 @@ export function explainError(err) {
 		return { code: 'stripe_key', error: 'Payment setup problem: Stripe rejected the secret key. Check STRIPE_SECRET_KEY in Netlify (it should start with sk_test_ or sk_live_), then redeploy.' };
 	if (type === 'StripePermissionError')
 		return { code: 'stripe_permission', error: 'Payment setup problem: the Stripe key doesn’t have permission for Checkout. Use the standard Secret key (sk_…), not a restricted key (rk_…).' };
+	if (type === 'StripeConnectionError')
+		return { code: 'stripe_timeout', error: 'Payment setup problem: Stripe didn’t answer in time. Please try again in a moment.' };
 	if (type.startsWith('Stripe'))
 		return { code: 'stripe', error: 'Payment setup problem (Stripe): ' + msg };
 	if (/does not exist|schema cache|ecg_course_students/i.test(msg) && /relation|table|schema/i.test(msg))
 		return { code: 'db_table', error: 'Database setup problem: the ecg_course_students table wasn’t found. Run supabase/migrations/0001_ecg_course_students.sql in the Supabase SQL Editor of the project in SUPABASE_URL.' };
 	if (/Invalid API key|JWT|apikey|permission denied|No API key/i.test(msg))
 		return { code: 'db_key', error: 'Database setup problem: Supabase rejected the key. SUPABASE_SERVICE_ROLE_KEY must be the secret / service_role key (not the anon or publishable key) from the same project as SUPABASE_URL.' };
-	if (/fetch failed|ENOTFOUND|getaddrinfo|Invalid URL|invalid url/i.test(msg))
+	if (/TimeoutError|aborted due to timeout/i.test(msg))
+		return { code: 'db_timeout', error: 'Database setup problem: Supabase didn’t answer in time. Check SUPABASE_URL, and that the Supabase project isn’t paused (Supabase pauses free projects after a week without use).' };
+	if (/fetch failed|ENOTFOUND|getaddrinfo|Invalid URL|invalid url|Invalid supabaseUrl|supabaseUrl is required|Invalid path specified/i.test(msg))
 		return { code: 'db_url', error: 'Database setup problem: couldn’t reach Supabase. Check SUPABASE_URL (it looks like https://abcd1234.supabase.co, no extra path).' };
 	if (/find|record|touch|issue/i.test(msg) && /Student|Payment|SignIn|Certificate/.test(msg))
 		return { code: 'db', error: 'Database problem: ' + msg.replace(/^\w+( \w+)?: /, '') };

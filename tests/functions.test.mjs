@@ -203,3 +203,12 @@ test('setup errors come back as readable JSON', async () => {
 	assert.equal(explainError(new Error('findStudent: Invalid API key')).code, 'db_key');
 	assert.equal(explainError(new Error('findStudent: TypeError: fetch failed')).code, 'db_url');
 });
+
+import { supabaseOrigin } from '../netlify/lib/deps.mjs';
+test('SUPABASE_URL paste mistakes are corrected', () => {
+	const want = 'https://abcdefghijklmnop.supabase.co';
+	for (const v of [want, want + '/', want + '/rest/v1/', ' ' + want + '/rest/v1 ', 'abcdefghijklmnop.supabase.co', want + '/auth/v1',
+		'https://supabase.com/dashboard/project/abcdefghijklmnop/settings/api'])
+		assert.equal(supabaseOrigin(v), want, v);
+	assert.equal(explainError(new Error('findStudent: Invalid path specified in request URL')).code, 'db_url');
+});

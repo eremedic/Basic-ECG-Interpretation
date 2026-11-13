@@ -7,13 +7,42 @@ import { createClient } from '@supabase/supabase-js';
 
 let cached = null;
 
+/**
+ * SUPABASE_URL should be just the project address (https://<ref>.supabase.co).
+ * Accept common paste mistakes: a trailing /rest/v1/, any other path, a missing
+ * https://, or the dashboard link (supabase.com/dashboard/project/<ref>).
+ */
+export function supabaseOrigin(raw) {
+	let v = String(raw || '').trim();
+	const dash = /supabase\.com\/dashboard\/project\/([a-z0-9]{10,40})/i.exec(v);
+	if (dash) return `https://${dash[1].toLowerCase()}.supabase.co`;
+	if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+	try {
+		return new URL(v).origin;
+	} catch {
+		return v;
+	}
+}
+
+function timedFetch(ms) {
+	return (url, opts = {}) => {
+		const t = AbortSignal.timeout(ms);
+		return fetch(url, { ...opts, signal: opts.signal ? AbortSignal.any([opts.signal, t]) : t });
+	};
+}
+
 export function getDeps() {
 	if (cached) return cached;
 	const env = process.env;
 	cached = {
-		stripe: env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY) : null,
+		// Answer within Netlify's 10-second function limit, so a slow service gives a
+		// readable error instead of a bare 502.
+		stripe: env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY.trim(), { timeout: 7000, maxNetworkRetries: 0 }) : null,
 		db: env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY
-			? createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+			? createClient(supabaseOrigin(env.SUPABASE_URL), env.SUPABASE_SERVICE_ROLE_KEY.trim(), {
+					auth: { persistSession: false },
+					global: { fetch: timedFetch(6000) }
+				})
 			: null,
 		secret: env.ACCESS_TOKEN_SECRET || '',
 		webhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
