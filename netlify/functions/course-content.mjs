@@ -2,7 +2,7 @@
 // The full course (all units) for an enrolled student, plus their record:
 // name, email and certificate. The public site only contains Unit 1.
 import { getDeps, missing } from '../lib/deps.mjs';
-import { bearer, json } from '../lib/http.mjs';
+import { bearer, json, safe } from '../lib/http.mjs';
 import { findStudent } from '../lib/students.mjs';
 import { verifyToken } from '../lib/tokens.mjs';
 import course from '../data/course-full.json' with { type: 'json' };
@@ -28,4 +28,4 @@ export async function handle(req, deps, data = course) {
 	return json(200, { course: data, student: studentView(student) });
 }
 
-export default (req) => handle(req, getDeps());
+export default safe((req) => handle(req, getDeps()));

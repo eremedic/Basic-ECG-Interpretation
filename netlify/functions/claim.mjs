@@ -3,7 +3,7 @@
 //   session_id  the Stripe Checkout session the student just paid with
 //   link_token  the token from a sign-in email
 import { getDeps, missing } from '../lib/deps.mjs';
-import { json, readJson } from '../lib/http.mjs';
+import { json, readJson, safe } from '../lib/http.mjs';
 import { findStudent, recordPayment, touchSignIn } from '../lib/students.mjs';
 import { signToken, verifyToken } from '../lib/tokens.mjs';
 
@@ -44,4 +44,4 @@ export async function handle(req, deps) {
 	return json(400, { error: 'Invalid request.' });
 }
 
-export default (req) => handle(req, getDeps());
+export default safe((req) => handle(req, getDeps()));

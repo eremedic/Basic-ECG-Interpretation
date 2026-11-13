@@ -3,7 +3,7 @@
 // returns its verification code. Requires a passing final exam score.
 import crypto from 'node:crypto';
 import { getDeps, missing } from '../lib/deps.mjs';
-import { bearer, cleanName, json, readJson } from '../lib/http.mjs';
+import { bearer, cleanName, json, readJson, safe } from '../lib/http.mjs';
 import { findStudent, issueCertificate } from '../lib/students.mjs';
 import { verifyToken } from '../lib/tokens.mjs';
 import { studentView } from './course-content.mjs';
@@ -27,4 +27,4 @@ export async function handle(req, deps) {
 	return json(200, { student: studentView(updated) });
 }
 
-export default (req) => handle(req, getDeps());
+export default safe((req) => handle(req, getDeps()));

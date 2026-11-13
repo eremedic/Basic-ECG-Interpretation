@@ -1,13 +1,13 @@
 // POST /api/create-checkout  { name, email }
 // Starts a Stripe Checkout for the full course and returns its URL.
 import { getDeps, missing } from '../lib/deps.mjs';
-import { cleanEmail, cleanName, json, readJson } from '../lib/http.mjs';
+import { cleanEmail, cleanName, json, readJson, safe } from '../lib/http.mjs';
 import { findStudent } from '../lib/students.mjs';
 
 export async function handle(req, deps) {
 	if (req.method !== 'POST') return json(405, { error: 'Use POST.' });
 	const gaps = missing(deps, 'stripe', 'db', 'siteUrl');
-	if (gaps.length) return json(503, { error: 'Enrollment is not set up yet.', missing: gaps });
+	if (gaps.length) return json(503, { error: 'Enrollment is not set up yet. Missing in Netlify: ' + gaps.join(', ') + ' (then redeploy).', missing: gaps });
 	const body = await readJson(req);
 	const email = cleanEmail(body?.email);
 	const name = cleanName(body?.name, 120);
@@ -42,4 +42,4 @@ export async function handle(req, deps) {
 	return json(200, { url: session.url });
 }
 
-export default (req) => handle(req, getDeps());
+export default safe((req) => handle(req, getDeps()));

@@ -3,7 +3,7 @@
 // the browser before returning to the site. Point a Stripe webhook endpoint at
 // https://<your site>/api/stripe-webhook for the event checkout.session.completed.
 import { getDeps } from '../lib/deps.mjs';
-import { json } from '../lib/http.mjs';
+import { json, safe } from '../lib/http.mjs';
 import { recordPayment } from '../lib/students.mjs';
 
 export async function handle(req, deps) {
@@ -23,4 +23,4 @@ export async function handle(req, deps) {
 	return json(200, { received: true });
 }
 
-export default (req) => handle(req, getDeps());
+export default safe((req) => handle(req, getDeps()));

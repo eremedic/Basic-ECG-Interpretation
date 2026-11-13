@@ -2,7 +2,7 @@
 // Emails an enrolled student a sign-in link (for a new device or browser).
 // Always answers the same way, so it can't reveal who is enrolled.
 import { getDeps, missing } from '../lib/deps.mjs';
-import { cleanEmail, json, readJson } from '../lib/http.mjs';
+import { cleanEmail, json, readJson, safe } from '../lib/http.mjs';
 import { findStudent } from '../lib/students.mjs';
 import { signToken } from '../lib/tokens.mjs';
 
@@ -43,4 +43,4 @@ export async function handle(req, deps) {
 	return json(200, { ok: true });
 }
 
-export default (req) => handle(req, getDeps());
+export default safe((req) => handle(req, getDeps()));

@@ -1058,7 +1058,12 @@
     if (opts.auth && account.token) headers.authorization = 'Bearer ' + account.token;
     return fetch(API + path, { method: opts.body ? 'POST' : 'GET', headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined })
       .then(function (res) {
-        return res.json().catch(function () { return {}; }).then(function (data) { data.status = res.status; return data; });
+        return res.json().catch(function () {
+          // Not JSON: the server functions didn't answer (not deployed, or crashed).
+          return { error: res.status === 404
+            ? 'The site’s server isn’t responding (error 404). In Netlify, check that the latest deploy published its functions (Deploys → latest deploy → Functions).'
+            : 'The server had a problem (error ' + res.status + '). Details are in Netlify → Logs → Functions.' };
+        }).then(function (data) { data.status = res.status; return data; });
       })
       .catch(function () { return { status: 0, error: 'We couldn’t reach the server. Check your connection and try again.' }; });
   }

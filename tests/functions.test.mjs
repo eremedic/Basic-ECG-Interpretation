@@ -191,3 +191,15 @@ test('certificate: tracks name, score and issue date; keeps first issue date; ve
 	assert.equal((await verifyCert(get('/api/verify-certificate?id=00000000-0000-0000-0000-000000000000'), deps)).status, 404);
 	assert.equal((await verifyCert(get('/api/verify-certificate?id=bad'), deps)).status, 400);
 });
+
+import { explainError, safe } from '../netlify/lib/http.mjs';
+test('setup errors come back as readable JSON', async () => {
+	const res = await safe(async () => { const e = new Error('Invalid API Key provided: sk_test_****1234'); e.type = 'StripeAuthenticationError'; throw e; })(new Request('http://x/'));
+	assert.equal(res.status, 500);
+	const body = await res.json();
+	assert.equal(body.code, 'stripe_key');
+	assert.ok(!body.error.includes('1234'));
+	assert.equal(explainError(new Error('findStudent: relation "public.ecg_course_students" does not exist')).code, 'db_table');
+	assert.equal(explainError(new Error('findStudent: Invalid API key')).code, 'db_key');
+	assert.equal(explainError(new Error('findStudent: TypeError: fetch failed')).code, 'db_url');
+});

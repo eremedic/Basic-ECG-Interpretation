@@ -2,7 +2,7 @@
 // Lets anyone (an employer, an instructor) confirm a certificate is genuine.
 // Returns only the name on the certificate, the date and the score.
 import { getDeps, missing } from '../lib/deps.mjs';
-import { UUID_RE, json } from '../lib/http.mjs';
+import { UUID_RE, json, safe } from '../lib/http.mjs';
 import { findCertificate } from '../lib/students.mjs';
 
 export async function handle(req, deps) {
@@ -21,4 +21,4 @@ export async function handle(req, deps) {
 	});
 }
 
-export default (req) => handle(req, getDeps());
+export default safe((req) => handle(req, getDeps()));
