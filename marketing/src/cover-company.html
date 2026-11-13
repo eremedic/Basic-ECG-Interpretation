@@ -6,11 +6,13 @@
   background:radial-gradient(circle at 85% 0%,#2b4185 0%,#1b2a5b 45%,#0e1a3d 100%)}
 .ecg{position:absolute;left:0;right:0;top:300px;opacity:.07}
 .bar{position:absolute;left:0;right:0;bottom:0;height:10px;background:linear-gradient(90deg,#43a047 0 25%,#1e88e5 25% 50%,#fb8c00 50% 75%,#e53935 75%)}
-/* phones show only the middle ~1110px */
-.safe{position:absolute;left:265px;right:265px;top:0;bottom:0;display:grid;grid-template-columns:1fr 470px;gap:44px;align-items:center;padding:0 10px}
+.safe{position:absolute;inset:0}
+/* split layout: open space in the middle for Facebook's centered profile picture */
+.left{position:absolute;left:96px;width:560px;top:50%;transform:translateY(-50%)}
+.right{position:absolute;right:96px;width:540px;top:50%;transform:translateY(-50%)}
 .wm{font:900 40px Montserrat}.wm .h{color:#3fb7c9}.wm .e{color:#ff5a5f}
-h1{font:900 66px/1.05 Montserrat;margin:16px 0 0}h1 span{color:#ff6b6f}
-p{font-size:24px;color:#d5ddf0;margin:18px 0 0;line-height:1.45}
+h1{font:900 60px/1.05 Montserrat;margin:16px 0 0}h1 span{color:#ff6b6f}
+p{font-size:22px;color:#d5ddf0;margin:18px 0 0;line-height:1.45}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .tile{border-radius:20px;padding:22px 20px;display:flex;flex-direction:column;gap:12px;min-height:150px;box-shadow:0 12px 30px rgba(0,0,0,.25)}
 .tile svg{width:46px;height:46px;stroke:#fff;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
@@ -20,12 +22,12 @@ p{font-size:24px;color:#d5ddf0;margin:18px 0 0;line-height:1.45}
 <div id="cover">
   <svg class="ecg" viewBox="0 0 1640 120" preserveAspectRatio="none" width="1640" height="120"><polyline fill="none" stroke="#3dff8f" stroke-width="4" points="0,80 120,80 140,70 160,80 190,80 200,92 215,10 230,110 242,80 290,80 320,62 350,80 520,80 540,70 560,80 590,80 600,92 615,10 630,110 642,80 690,80 720,62 750,80 920,80 940,70 960,80 990,80 1000,92 1015,10 1030,110 1042,80 1090,80 1120,62 1150,80 1320,80 1340,70 1360,80 1390,80 1400,92 1415,10 1430,110 1442,80 1490,80 1520,62 1550,80 1640,80"/></svg>
   <div class="safe">
-    <div>
+    <div class="left">
       <div class="wm">CS<span class="h">Health</span><span class="e">ED</span></div>
       <h1>Healthcare Education<br><span>&amp; Consulting</span></h1>
       <p>Online courses, interactive training tools and consulting for EMS, fire and healthcare professionals, students and programs.</p>
     </div>
-    <div class="grid">
+    <div class="right grid">
       <div class="tile" style="background:#16a34a"><svg viewBox="0 0 24 24"><path d="M5 3v6a5 5 0 0 0 10 0V3"/><path d="M10 14v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="12" r="2"/></svg><b>Healthcare</b><small>Clinical education &amp; skills</small></div>
       <div class="tile" style="background:#1e88e5"><svg viewBox="0 0 24 24"><path d="M12 2v20M3.3 7l17.4 10M20.7 7 3.3 17"/></svg><b>EMS</b><small>Paramedic &amp; EMT training</small></div>
       <div class="tile" style="background:#fb8c00"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M6 21v-6M11 21v-9M16 21v-5"/><path d="M4 11l5-4 4 3 7-6"/><path d="M16 4h4v4"/></svg><b>Consulting</b><small>Programs, teams &amp; growth</small></div>
