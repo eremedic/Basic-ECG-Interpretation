@@ -804,18 +804,19 @@
       }
       drag.ghost.style.left = (e.clientX - drag.dx) + 'px';
       drag.ghost.style.top = (e.clientY - drag.dy) + 'px';
-      // scroll the page when dragging near the top or bottom edge
-      // (only in the direction the card is being dragged)
-      if (e.clientY < 150 && e.clientY < drag.y0 - 20) window.scrollBy(0, -Math.ceil((150 - e.clientY) / 6));
-      else if (e.clientY > window.innerHeight - 60 && e.clientY > drag.y0 + 20) window.scrollBy(0, Math.ceil((e.clientY - window.innerHeight + 60) / 6));
-      var under = document.elementFromPoint(e.clientX, e.clientY);
-      var tgt = under && (under.closest('[data-slot]') || under.closest('[data-bank]'));
-      if (tgt && !body.contains(tgt)) tgt = null;
-      if (drag.over !== tgt) { if (drag.over) drag.over.classList.remove('hover'); if (tgt) tgt.classList.add('hover'); drag.over = tgt; }
+      drag.lx = e.clientX; drag.ly = e.clientY;
+      var dd = drag, over = function () {
+        var under = document.elementFromPoint(dd.lx, dd.ly);
+        var tgt = under && (under.closest('[data-slot]') || under.closest('[data-bank]'));
+        if (tgt && !body.contains(tgt)) tgt = null;
+        if (dd.over !== tgt) { if (dd.over) dd.over.classList.remove('hover'); if (tgt) tgt.classList.add('hover'); dd.over = tgt; }
+      };
+      dragAutoScroll(e, drag, over);
+      over();
     });
     function endDrag(e) {
       if (!drag || e.pointerId !== drag.id) return;
-      var dd = drag; drag = null;
+      var dd = drag; drag = null; dd.ended = true;
       if (!dd.ghost) return; // a tap: handled by click
       dd.ghost.remove();
       skipClick = true;
@@ -843,6 +844,33 @@
       },
       done: done
     });
+  }
+  // While a card is dragged near the top or bottom of the screen, scroll the page
+  // (only in the direction it is being dragged). The top zone starts below the
+  // sticky header and narration bar, which cover the top of the screen on phones.
+  function dragAutoScroll(e, drag, onScroll) {
+    var top = 0;
+    ['.site-header', '#narr-bar'].forEach(function (sel) {
+      var x = $(sel); if (!x) return;
+      var r = x.getBoundingClientRect();
+      if (r.height && r.top < window.innerHeight / 2 && r.bottom > top) top = r.bottom;
+    });
+    var zone = top + 70, bottom = window.innerHeight - 60;
+    drag.v = 0;
+    if (e.clientY < zone && e.clientY < drag.y0 - 20) drag.v = -Math.ceil((zone - e.clientY) / 4);
+    else if (e.clientY > bottom && e.clientY > drag.y0 + 20) drag.v = Math.ceil((e.clientY - bottom) / 4);
+    // keep scrolling while the card is held still in the edge zone
+    if (drag.v && !drag.raf) {
+      var step = function () {
+        if (drag.ended || !drag.v) { drag.raf = null; return; }
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        if ((drag.v < 0 && window.pageYOffset <= 0) || (drag.v > 0 && window.pageYOffset >= max - 1)) { drag.raf = null; return; } // end of the page
+        window.scrollBy({ top: drag.v, behavior: 'instant' }); // not smooth: one step per frame
+        if (onScroll) onScroll();
+        drag.raf = requestAnimationFrame(step);
+      };
+      drag.raf = requestAnimationFrame(step);
+    }
   }
   // Put-in-order activity: drag the boxes (mouse or touch). Keyboard: focus a
   // box and use the up/down arrow keys.
@@ -972,15 +1000,18 @@
       }
       drag.ghost.style.left = (e.clientX - drag.dx) + 'px';
       drag.ghost.style.top = (e.clientY - drag.dy) + 'px';
-      if (e.clientY < 150 && e.clientY < drag.y0 - 20) window.scrollBy(0, -Math.ceil((150 - e.clientY) / 6));
-      else if (e.clientY > window.innerHeight - 60 && e.clientY > drag.y0 + 20) window.scrollBy(0, Math.ceil((e.clientY - window.innerHeight + 60) / 6));
-      var under = document.elementFromPoint(e.clientX, e.clientY), tgt = under && under.closest('[data-bucket]');
-      if (tgt && !body.contains(tgt)) tgt = null;
-      if (drag.over !== tgt) { if (drag.over) drag.over.classList.remove('hover'); if (tgt) tgt.classList.add('hover'); drag.over = tgt; }
+      drag.lx = e.clientX; drag.ly = e.clientY;
+      var dd = drag, over = function () {
+        var under = document.elementFromPoint(dd.lx, dd.ly), tgt = under && under.closest('[data-bucket]');
+        if (tgt && !body.contains(tgt)) tgt = null;
+        if (dd.over !== tgt) { if (dd.over) dd.over.classList.remove('hover'); if (tgt) tgt.classList.add('hover'); dd.over = tgt; }
+      };
+      dragAutoScroll(e, drag, over);
+      over();
     });
     function endDrag(e) {
       if (!drag || e.pointerId !== drag.id) return;
-      var dd = drag; drag = null;
+      var dd = drag; drag = null; dd.ended = true;
       if (!dd.ghost) return; // a tap: handled by click
       dd.ghost.remove(); skipClick = true;
       if (dd.over) put(dd.n, +dd.over.dataset.bucket); else render();
