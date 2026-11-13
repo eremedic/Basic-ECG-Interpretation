@@ -60,6 +60,7 @@ Create a new site from this repository. The build settings come from `netlify.to
 | `EMAIL_FROM` *(optional)* | Defaults to `CSHealthED <no-reply@cshealthed.com>` |
 | `STRIPE_PRICE_ID` *(optional)* | A Stripe Price to charge. Without it, checkout charges $49.00 USD. |
 | `COURSE_PRICE_CENTS` *(optional)* | Changes the built-in price, e.g. `4900`. |
+| `STRIPE_REQUIRE_TERMS` *(optional)* | `true` adds a required “I agree to the Terms and Refund Policy” checkbox on the payment page. First set a Terms of Service URL (`https://YOUR-SITE/#terms`) in Stripe → Settings → Business → Public details, or checkout will fail. |
 
 Redeploy after you add the variables.
 
@@ -72,7 +73,14 @@ In Stripe, go to **Developers → Webhooks → Add endpoint** and set it up:
 
 Copy the endpoint's signing secret into `STRIPE_WEBHOOK_SECRET`, then redeploy.
 
-### 4. Test it
+### 4. Brand the payment page
+
+Stripe → Settings → Business → **Branding**: upload the logo/icon, brand color `#1b2a5b`, accent `#e0262b`.
+Settings → Business → **Public details**: business name, support email, statement descriptor.
+Settings → **Customer emails**: turn on successful-payment receipts. (Sandboxes have their own settings.)
+The site already sends the course image (`site/assets/stripe-course.png`) and the text shown above the Pay button.
+
+### 5. Test it
 
 1. With test keys, enroll using card `4242 4242 4242 4242`.
 2. You should land on "You're enrolled!" with every unit unlocked.

@@ -220,3 +220,18 @@ test('SITE_URL gets a scheme and loses extras', () => {
 	assert.equal(siteOrigin(''), '');
 	assert.equal(siteOrigin('nonsense'), '');
 });
+
+test('create-checkout: branded image, custom text, optional terms consent', async () => {
+	const deps = fakeDeps();
+	await createCheckout(post('/api/create-checkout', { name: 'A B', email: 'a@b.co' }), deps);
+	const s = deps.stripe.created[0];
+	assert.deepEqual(s.line_items[0].price_data.product_data.images, ['https://course.example.com/assets/stripe-course.png']);
+	assert.match(s.custom_text.submit.message, /\(https:\/\/course\.example\.com\/#terms\)/);
+	assert.ok(s.custom_text.submit.message.length <= 1200);
+	assert.equal(s.consent_collection, undefined);
+	assert.equal(s.custom_text.terms_of_service_acceptance, undefined);
+	const d2 = fakeDeps({ requireTerms: true });
+	await createCheckout(post('/api/create-checkout', { name: 'A B', email: 'c@d.co' }), d2);
+	assert.deepEqual(d2.stripe.created[0].consent_collection, { terms_of_service: 'required' });
+	assert.match(d2.stripe.created[0].custom_text.terms_of_service_acceptance.message, /#terms/);
+});

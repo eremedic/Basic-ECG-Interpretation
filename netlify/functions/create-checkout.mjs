@@ -24,7 +24,8 @@ export async function handle(req, deps) {
 					unit_amount: deps.priceCents,
 					product_data: {
 						name: 'Basic ECG Interpretation — full course',
-						description: 'Lifetime access: 9 narrated units, activities, quizzes, final exam and certificate.'
+						description: 'Lifetime access: 9 narrated units, activities, quizzes, final exam and certificate.',
+						images: [`${deps.siteUrl}/assets/stripe-course.png`]
 					}
 				},
 				quantity: 1
@@ -36,10 +37,30 @@ export async function handle(req, deps) {
 		line_items: [lineItem],
 		allow_promotion_codes: true,
 		metadata: { product: 'ecg-basic-course', student_name: name },
+		payment_intent_data: { description: 'Basic ECG Interpretation — full course', metadata: { product: 'ecg-basic-course', student_name: name } },
+		custom_text: checkoutText(deps),
+		// Requires a Terms of Service URL in Stripe → Settings → Business → Public details.
+		...(deps.requireTerms ? { consent_collection: { terms_of_service: 'required' } } : {}),
 		success_url: `${deps.siteUrl}/#welcome?session_id={CHECKOUT_SESSION_ID}`,
 		cancel_url: `${deps.siteUrl}/#enroll`
 	});
 	return json(200, { url: session.url });
+}
+
+/** Words shown on Stripe's payment page (Markdown links are allowed). */
+export function checkoutText(deps) {
+	const terms = `${deps.siteUrl}/#terms`;
+	const text = {
+		submit: {
+			message: `One-time payment for lifetime access to all 9 units, the final exam and your certificate. After paying you'll return to the course with everything unlocked. [Terms and refund policy](${terms})`
+		},
+		after_submit: {
+			message: 'Thank you for enrolling! Taking you back to your course…'
+		}
+	};
+	if (deps.requireTerms)
+		text.terms_of_service_acceptance = { message: `I agree to the [Terms of Use and Refund Policy](${terms}).` };
+	return text;
 }
 
 export default safe((req) => handle(req, getDeps()));

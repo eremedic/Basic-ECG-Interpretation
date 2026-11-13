@@ -1174,6 +1174,7 @@
       faq('What do I need?', 'A modern web browser. Narration uses your browser’s built-in voice and works best in Chrome, Edge or Safari.') +
       faq('What does the certificate show?', 'Your name, the course, your final exam score and the date, with a certificate ID anyone can verify on this site. It records completion of this course — check with your program or agency whether it counts toward your requirements.') +
       faq('Can I try it first?', 'Yes — Unit 1, The Heart’s Electrical System, is free, including its quiz.') +
+      faq('Can I get a refund?', 'Yes — email us within 14 days of purchase for a full refund, as long as a certificate hasn’t been issued. See the <a href="#terms">Terms &amp; Refund Policy</a>.') +
       faq('Questions about your purchase?', 'Email <a href="mailto:support@cshealthed.com">support@cshealthed.com</a>.') +
       '</div></div></section>';
 
@@ -1224,7 +1225,7 @@
       '<label>Your name <small>(as it should appear on your certificate)</small><input name="name" type="text" maxlength="120" autocomplete="name" required></label>' +
       '<label>Email <small>(for your receipt and sign-in links)</small><input name="email" type="email" maxlength="254" autocomplete="email" required></label>' +
       '<button class="btn btn-primary" type="submit">Continue to secure payment — ' + PRICE + '</button>' +
-      '<p class="hint">You’ll pay on Stripe’s secure checkout page, then come straight back here with the full course unlocked.</p>' +
+      '<p class="hint">You’ll pay on Stripe’s secure checkout page, then come straight back here with the full course unlocked. By enrolling you agree to the <a href="#terms">Terms of Use &amp; Refund Policy</a>.</p>' +
       '<div class="form-msg" id="enroll-msg" role="alert"></div></form>');
     $('#enroll-form').addEventListener('submit', function (e) {
       e.preventDefault();
@@ -1296,6 +1297,22 @@
       '<button class="btn btn-primary" type="submit">Email me a sign-in link</button><div class="form-msg" id="signin-msg" role="status"></div>' +
       '<p class="hint">Not enrolled yet? <a href="#enroll">Enroll — ' + PRICE + '</a> or <a href="#course-electro">try Unit 1 free</a>.</p></form>');
     $('#signin-form').addEventListener('submit', function (e) { e.preventDefault(); requestLink(e.target.email.value.trim(), $('#signin-msg')); });
+  }
+
+  /* ---------- terms of use & refund policy (public) ---------- */
+  var SUPPORT = 'support@cshealthed.com';
+  function viewTerms() {
+    var mail = '<a href="mailto:' + SUPPORT + '">' + SUPPORT + '</a>';
+    main.innerHTML = pageHead('#1b2a5b', '<a href="#home">Home</a> / Terms', 'Terms of Use & Refund Policy', 'For the Basic ECG Interpretation self-paced course from CSHealthED.') +
+      '<section class="section"><div class="wrap"><div class="panel terms">' +
+      '<h2>Your purchase</h2><p>Enrollment is a one-time payment of ' + PRICE + ' (USD) for lifetime access to the full course: all ' + UNITS.length + ' units, the final exam and a certificate of completion. Payments are processed securely by Stripe; CSHealthED never sees or stores your card details.</p>' +
+      '<h2>Refunds</h2><p>If the course isn’t right for you, email ' + mail + ' within <b>14 days</b> of purchase for a full refund, as long as a certificate has not been issued. Refunds go back to the original payment method, and course access ends when the refund is made. Unit 1 is free, so you can try the course before you buy.</p>' +
+      '<h2>Your access</h2><p>Your enrollment is for you alone. Please don’t share your sign-in links or course content. You can use the course on any of your own devices by signing in with your email. Lesson progress is saved in each browser; your enrollment and certificate are kept on our server.</p>' +
+      '<h2>Certificate</h2><p>The certificate records that you completed this course and passed its final exam (' + PASS + '% or higher). It is an educational course record, not a license, certification or clinical credential. Check with your program, employer or agency whether it counts toward your requirements. Anyone with your certificate ID can confirm it on our <a href="#verify">verification page</a>, which shows your name, score and completion date.</p>' +
+      '<h2>Educational use only</h2><p>ECG strips in this course are computer-generated simulations for training. Clinical content is general guidance and does not replace your protocols, medical direction, or professional judgment.</p>' +
+      '<h2>Your information</h2><p>We keep your name, email address, payment record (amount, date and Stripe reference) and certificate details to provide the course and verify certificates. We use your email only for your receipt and sign-in links, and we don’t sell your information. To have your record removed, email ' + mail + '.</p>' +
+      '<h2>Contact</h2><p>Questions about the course or your purchase: ' + mail + '.</p>' +
+      '</div></div></section>';
   }
 
   /* ---------- certificate verification (public) ---------- */
@@ -1407,6 +1424,7 @@
     else if (h === 'welcome') viewWelcome(q);
     else if (h === 'signin') { viewSignIn(q); nav = 'signin'; }
     else if (h === 'verify') { viewVerify(q); nav = 'verify'; }
+    else if (h === 'terms') { viewTerms(); nav = 'terms'; }
     else if (cm) {
       viewCourseRoute(cm[1], cm[2]);
       nav = cm[1] === 'exam' ? 'exam' : cm[1] === 'cert' ? 'cert' : 'course';
