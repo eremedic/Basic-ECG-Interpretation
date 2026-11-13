@@ -365,7 +365,7 @@
           ['h', 'Is the patient stable?'],
           ['p', 'After the five steps, <b>look at the patient</b>: pulse, perfusion, mental status and blood pressure. A rhythm causes a problem when it produces any of these signs of <b>instability</b>:'],
           ['html', UNSTABLE, 'Hypotension or signs of shock. Altered mental status. Ischemic chest pain. Acute heart failure.'],
-          ['callout', 'Treatment decisions depend on whether the patient is stable or unstable — not on the monitor alone. <b>Treat the patient, not the monitor.</b>'],
+          ['callout', 'Treatment decisions depend on whether the patient is stable or unstable — not on the monitor alone. <b>Treat the patient, not the monitor.</b> <b>Symptomatic does not mean unstable.</b>'],
           ['kc', { q: 'A rhythm has a QRS of 0.16 s. What does this suggest?', o: ['A ventricular origin or abnormal conduction through the ventricles', 'A normal sinus impulse', 'A junctional rhythm with normal conduction', 'Atrial flutter'], a: 0, why: 'A QRS of 0.12 s or more is wide — the impulse is spreading slowly through the ventricles.' }],
           ['kc', { q: 'Which finding makes a patient with a fast rhythm unstable?', o: ['New confusion and low blood pressure', 'A heart rate of 110', 'Mild anxiety', 'A normal blood pressure with palpitations'], a: 0, why: 'Hypotension, altered mental status, ischemic chest pain and acute heart failure are the signs of instability.' }]
         ] },

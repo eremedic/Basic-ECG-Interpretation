@@ -916,3 +916,16 @@ a.lesson-row:hover { border-color: var(--c); }
 .m-chip.lifted { opacity: .35; }
 .m-chip:disabled { cursor: default; opacity: 1; }
 .m-ghost { position: fixed; z-index: 1000; pointer-events: none; cursor: grabbing; box-shadow: 0 12px 28px rgba(15,23,42,.25); transform: rotate(-1.5deg); }
+/* sorting: drag cards into groups */
+.s-bank { margin: 0 0 12px; }
+.s-buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.s-bucket { border: 2px dashed var(--input-border); border-radius: 12px; background: var(--card); padding: 10px; min-height: 120px; display: flex; flex-direction: column; gap: 8px; transition: border-color .15s, background .15s; }
+.s-bucket.hover { border-color: var(--c, var(--navy)); background: color-mix(in srgb, var(--c, var(--navy)) 10%, var(--card)); }
+.s-bucket:focus-visible { outline: 2px solid var(--c, var(--navy)); outline-offset: 2px; }
+.s-bh { font-weight: 800; color: var(--heading); font-size: .9rem; text-transform: uppercase; letter-spacing: .05em; padding: 2px 4px 6px; border-bottom: 1px solid var(--line); }
+.s-bin { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.s-bin .m-chip { width: 100%; }
+.s-card.ok { border-color: var(--ok-border); background: var(--ok-50); border-left-color: var(--ok); }
+.s-card.bad { border-color: var(--bad-border); background: var(--bad-50); border-left-color: var(--bad); }
+.s-mk { float: right; font-weight: 900; margin-left: 8px; }
+.s-card.ok .s-mk { color: var(--ok); } .s-card.bad .s-mk { color: var(--bad); }

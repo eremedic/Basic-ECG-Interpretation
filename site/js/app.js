@@ -910,24 +910,93 @@
       done: done
     });
   }
+  // Sorting activity: drag each card into the right group (mouse or touch),
+  // or tap a card and then tap a group (keyboard: Enter). Cards can be moved
+  // between groups or dragged back to the unsorted pile.
   function sortActivity(el, d, done) {
-    var items = shuffle(d.items.map(function (x, n) { return { t: x[0], b: x[1], n: n }; })), pick = {};
-    $('.act-body', el).innerHTML = '<div class="s-grid">' + items.map(function (x) {
-      return '<div class="s-row" data-n="' + x.n + '"><span class="s-text">' + esc(x.t) + '</span><div class="seg" role="group" aria-label="' + esc(x.t) + '">' +
-        d.buckets.map(function (bk, k) { return '<button data-k="' + k + '">' + esc(bk) + '</button>'; }).join('') + '</div><span class="m-mark" aria-hidden="true"></span></div>';
-    }).join('') + '</div>';
-    var rows = $all('.s-row', el);
-    $('.act-body', el).addEventListener('click', function (e) {
-      var b = e.target.closest('[data-k]'); if (!b || b.disabled) return;
-      var row = b.closest('.s-row'); pick[row.dataset.n] = +b.dataset.k;
-      $all('[data-k]', row).forEach(function (x) { x.classList.toggle('on', x === b); });
-      row.classList.remove('ok', 'bad'); $('.m-mark', row).textContent = '';
+    var order = shuffle(d.items.map(function (x, n) { return n; }));
+    var pick = {}, marks = null, sel = null, drag = null, skipClick = false, body = $('.act-body', el);
+    function locked() { var c = $('.act-btns [data-a="check"]', el); return c && c.disabled; }
+    function card(n) {
+      var m = marks && pick[n] != null ? marks[n] : null;
+      return '<button type="button" class="m-chip s-card' + (sel === n ? ' sel' : '') + (m === true ? ' ok' : m === false ? ' bad' : '') + '" data-ci="' + n + '" aria-pressed="' + (sel === n) + '">' +
+        esc(d.items[n][0]) + (m === true ? ' <span class="s-mk">✓</span>' : m === false ? ' <span class="s-mk">✗</span>' : '') + '</button>';
+    }
+    function render() {
+      var bank = order.filter(function (n) { return pick[n] == null; });
+      body.innerHTML = '<p class="ord-hint">Drag each card into the right group — or tap a card, then tap a group.</p>' +
+        '<div class="m-bank s-bank" data-bucket="-1" aria-label="Cards to sort">' + (bank.length ? bank.map(card).join('') : '<span class="m-ph">All cards sorted. Drag one back here to remove it.</span>') + '</div>' +
+        '<div class="s-buckets" style="--n:' + d.buckets.length + '">' + d.buckets.map(function (bk, k) {
+          var inside = order.filter(function (n) { return pick[n] === k; });
+          return '<div class="s-bucket" data-bucket="' + k + '" role="button" tabindex="0" aria-label="Group: ' + esc(bk) + ', ' + inside.length + ' cards"><div class="s-bh">' + esc(bk) + '</div>' +
+            '<div class="s-bin">' + (inside.length ? inside.map(card).join('') : '<span class="m-ph">Drop cards here</span>') + '</div></div>';
+        }).join('') + '</div>';
+    }
+    function put(n, k) { // k = group index, or -1 for the unsorted pile
+      if (k < 0) delete pick[n]; else pick[n] = k;
+      if (marks) marks[n] = null;
+      sel = null; render();
+    }
+    body.addEventListener('click', function (e) {
+      if (skipClick) { skipClick = false; return; }
+      if (locked()) return;
+      var c = e.target.closest('[data-ci]'), bk = e.target.closest('[data-bucket]');
+      if (c && sel === +c.dataset.ci) { sel = null; render(); return; }
+      // with a card selected, tapping anywhere in a group places it there; tapping
+      // the pile puts it back (unless another card in the pile is tapped)
+      if (sel != null && bk && (+bk.dataset.bucket >= 0 || !c)) return put(sel, +bk.dataset.bucket);
+      if (c) { sel = +c.dataset.ci; render(); var f = $('[data-ci="' + sel + '"]', body); if (f) f.focus(); }
     });
-    function setMark(row, ok) { row.classList.toggle('ok', ok); row.classList.toggle('bad', !ok); $('.m-mark', row).textContent = ok ? '✓' : '✗'; }
+    body.addEventListener('keydown', function (e) {
+      var bk = e.target.closest('.s-bucket');
+      if (bk && e.target === bk && (e.key === 'Enter' || e.key === ' ') && sel != null && !locked()) { e.preventDefault(); put(sel, +bk.dataset.bucket); }
+    });
+    body.addEventListener('pointerdown', function (e) {
+      var c = e.target.closest('[data-ci]');
+      skipClick = false;
+      if (!c || locked() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      drag = { n: +c.dataset.ci, x0: e.clientX, y0: e.clientY, id: e.pointerId, src: c, ghost: null, over: null };
+    });
+    body.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (!drag.ghost) {
+        if (Math.abs(e.clientX - drag.x0) + Math.abs(e.clientY - drag.y0) < 6) return;
+        try { body.setPointerCapture(e.pointerId); } catch (err) { /* released */ }
+        var r = drag.src.getBoundingClientRect();
+        drag.ghost = drag.src.cloneNode(true);
+        drag.ghost.className = 'm-chip m-ghost';
+        drag.ghost.style.width = r.width + 'px';
+        drag.dx = e.clientX - r.left; drag.dy = e.clientY - r.top;
+        document.body.appendChild(drag.ghost);
+        drag.src.classList.add('lifted');
+      }
+      drag.ghost.style.left = (e.clientX - drag.dx) + 'px';
+      drag.ghost.style.top = (e.clientY - drag.dy) + 'px';
+      if (e.clientY < 150 && e.clientY < drag.y0 - 20) window.scrollBy(0, -Math.ceil((150 - e.clientY) / 6));
+      else if (e.clientY > window.innerHeight - 60 && e.clientY > drag.y0 + 20) window.scrollBy(0, Math.ceil((e.clientY - window.innerHeight + 60) / 6));
+      var under = document.elementFromPoint(e.clientX, e.clientY), tgt = under && under.closest('[data-bucket]');
+      if (tgt && !body.contains(tgt)) tgt = null;
+      if (drag.over !== tgt) { if (drag.over) drag.over.classList.remove('hover'); if (tgt) tgt.classList.add('hover'); drag.over = tgt; }
+    });
+    function endDrag(e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      var dd = drag; drag = null;
+      if (!dd.ghost) return; // a tap: handled by click
+      dd.ghost.remove(); skipClick = true;
+      if (dd.over) put(dd.n, +dd.over.dataset.bucket); else render();
+    }
+    body.addEventListener('pointerup', endDrag);
+    body.addEventListener('pointercancel', endDrag);
+    cleanup.push(function () { $all('.m-ghost').forEach(function (g) { g.remove(); }); });
+    render();
     checkFlow(el, {
-      complete: function () { return rows.every(function (r) { return pick[r.dataset.n] != null; }); },
-      mark: function () { var right = 0; rows.forEach(function (r) { var ok = pick[r.dataset.n] === d.items[+r.dataset.n][1]; if (ok) right++; setMark(r, ok); }); return { right: right, total: rows.length }; },
-      reveal: function () { rows.forEach(function (r) { var k = d.items[+r.dataset.n][1]; pick[r.dataset.n] = k; $all('[data-k]', r).forEach(function (x) { x.classList.toggle('on', +x.dataset.k === k); }); setMark(r, true); }); },
+      complete: function () { return d.items.every(function (x, n) { return pick[n] != null; }); },
+      mark: function () {
+        marks = d.items.map(function (x, n) { return pick[n] === x[1]; });
+        render();
+        return { right: marks.filter(Boolean).length, total: marks.length };
+      },
+      reveal: function () { d.items.forEach(function (x, n) { pick[n] = x[1]; }); marks = d.items.map(function () { return true; }); sel = null; render(); },
       done: done
     });
   }
