@@ -882,3 +882,6 @@ a.lesson-row:hover { border-color: var(--c); }
 .cycle-table td { padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top; color: var(--ink); }
 .cycle-table td:first-child { font-weight: 700; color: var(--heading); white-space: nowrap; }
 .fig .lesson-img { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; border-radius: var(--radius); border: 1px solid var(--line); background: #eef3f9; }
+.lesson-video { margin: 0 auto; max-width: 960px; }
+.lesson-video video { display: block; width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--line); background: #0e1a3d; }
+.lesson-video figcaption { margin-top: 8px; font-size: .86rem; color: var(--muted); text-align: center; }
