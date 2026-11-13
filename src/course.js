@@ -92,6 +92,17 @@
   var CYCLE_VIDEO = '<figure class="lesson-video"><video controls muted loop playsinline preload="metadata" poster="assets/cardiac-cycle-poster.webp" width="2560" height="1080" aria-label="Animation of the cardiac cycle">' +
     '<source src="assets/cardiac-cycle.mp4" type="video/mp4">Your browser can’t play this video.</video>' +
     '<figcaption>One heartbeat in slow motion: the action potential and ECG (left), ion movement across the membrane (center) and blood flow through the heart (right). The video has no sound. Use full screen to see the detail. Timing is schematic.</figcaption></figure>';
+  var ANS_TABLE = '<div class="cycle-wrap"><table class="cycle-table ans-table"><thead><tr><th></th><th>Sympathetic — the accelerator</th><th>Parasympathetic — the brake</th></tr></thead><tbody>' +
+    '<tr><td>Also called</td><td>“Fight or flight”</td><td>“Rest and digest”</td></tr>' +
+    '<tr><td>Nerves to the heart</td><td>Cardiac accelerator nerves from the upper thoracic spinal cord</td><td>The vagus nerve (cranial nerve X)</td></tr>' +
+    '<tr><td>Chemical messenger</td><td>Norepinephrine; also epinephrine from the adrenal glands</td><td>Acetylcholine</td></tr>' +
+    '<tr><td>Heart receptors</td><td>Beta-1 (β1)</td><td>Muscarinic</td></tr>' +
+    '<tr><td>Where it acts</td><td>SA node, AV node, atria <b>and ventricles</b></td><td>Mainly the SA node, AV node and atria — very little on the ventricles</td></tr>' +
+    '<tr><td>Heart rate</td><td>Faster (positive chronotrope)</td><td>Slower (negative chronotrope)</td></tr>' +
+    '<tr><td>AV conduction</td><td>Faster (positive dromotrope)</td><td>Slower (negative dromotrope)</td></tr>' +
+    '<tr><td>Force of contraction</td><td>Stronger (positive inotrope)</td><td>Little direct effect on the ventricles</td></tr>' +
+    '<tr><td>On the ECG</td><td>Sinus tachycardia, shorter PR interval</td><td>Sinus bradycardia, longer PR interval, sometimes AV block</td></tr>' +
+    '</tbody></table></div>';
   var CYCLE_TABLE = '<div class="cycle-wrap"><table class="cycle-table"><thead><tr><th>On the ECG</th><th>Electrical event</th><th>Mechanical event (cardiac cycle)</th></tr></thead><tbody>' +
     '<tr><td>P wave</td><td>Atrial depolarization</td><td>The atria contract and top off the ventricles (the “atrial kick”)</td></tr>' +
     '<tr><td>PR segment</td><td>Impulse held briefly at the AV node</td><td>The ventricles finish filling</td></tr>' +
@@ -104,7 +115,7 @@
     /* ================================================================ 1 */
     {
       id: 'electro', title: 'The Heart’s Electrical System', color: '#1b2a5b', icon: 'heart',
-      summary: 'Cardiac cells, the sodium–potassium pump, action potentials and the cardiac cycle, the conduction pathway, pacemaker sites and refractory periods.',
+      summary: 'Cardiac cells, the sodium–potassium pump, action potentials and the cardiac cycle, the conduction pathway, pacemaker sites, the autonomic nervous system and refractory periods.',
       lessons: [
         { id: 'cells', title: 'Cardiac cells, the action potential and the cardiac cycle', min: 18, blocks: [
           ['p', 'Every heartbeat begins as an electrical event. An ECG does not show the heart squeezing — it shows the <b>electrical activity</b> that tells the muscle when to squeeze. Before you can read a rhythm, you need to know where that electricity comes from.'],
@@ -142,7 +153,7 @@
             '<b>Phase 4 — resting.</b> The cell sits at its resting potential while the <b>sodium–potassium pump</b> restores the ions. On the ECG this is the flat line between the T wave and the next P wave.'
           ]],
           ['callout', '<b>Refractory periods.</b> From phase 0 until late in phase 3 the cell cannot fire again, no matter how strong the stimulus — the <b>absolute refractory period</b>. Near the end of phase 3, a strong enough stimulus can trigger it early — the <b>relative refractory period</b>, which lines up with the downslope of the T wave. You will study this “vulnerable period” in Lesson 4.'],
-          ['order', { title: 'Put the action potential in order', prompt: 'Arrange the phases of a ventricular action potential from the first to the last.', items: ['Phase 0 — sodium rushes in', 'Phase 1 — brief early repolarization (the notch)', 'Phase 2 — calcium plateau', 'Phase 3 — potassium rushes out', 'Phase 4 — resting; the pump restores the ions'] }],
+          ['order', { title: 'Put the action potential in order', prompt: 'Drag the events of a ventricular action potential into order, from the moment the cell fires until it is ready to fire again.', items: ['Sodium rushes in and the cell depolarizes', 'A brief early repolarization makes a small notch', 'Calcium enters and the voltage holds near 0 mV (the plateau)', 'Potassium rushes out and the cell repolarizes', 'The cell rests while the pump restores the ions'] }],
           ['match', { title: 'Who does what?', prompt: 'Match each ion or structure to its job in the action potential.', pairs: [
             ['Sodium (Na⁺)', 'Rushes in during phase 0 — depolarization'], ['Calcium (Ca²⁺)', 'Enters during the plateau and triggers contraction'],
             ['Potassium (K⁺)', 'Rushes out during phase 3 — repolarization'], ['Na⁺/K⁺ pump', 'Uses ATP to move 3 Na⁺ out and 2 K⁺ in']] }],
@@ -174,11 +185,12 @@
           ['strip', 'nsr', { caption: 'Normal sinus rhythm in Lead II: every impulse takes the normal path — a P wave, a short pause, then a narrow QRS.' }],
           ['kc', { q: 'Why does the AV node delay the impulse?', o: ['To let the ventricles fill before they contract', 'To speed up the heart rate', 'To create the T wave', 'To start the impulse in the atria'], a: 0, why: 'The AV delay gives the atria time to empty into the ventricles. It also limits how many atrial impulses reach the ventricles when the atrial rate is very fast.' }]
         ] },
-        { id: 'pacers', title: 'Pacemaker sites and intrinsic rates', min: 8, blocks: [
+        { id: 'pacers', title: 'Pacemaker sites, intrinsic rates and the autonomic nervous system', min: 16, blocks: [
           ['p', 'Several areas of the heart can act as a pacemaker. The fastest one normally controls the heart. If it fails or slows, the next site down takes over at its own slower <b>intrinsic rate</b>.'],
           ['html', PACERS, 'The SA node fires at 60 to 100 per minute. The AV junction fires at 40 to 60. The ventricles fire at 20 to 40.'],
           ['p', 'This gives you a powerful clue. A regular narrow rhythm at 45 suggests the AV junction is in charge. A wide, slow rhythm at 30 suggests the ventricles are pacing the heart.'],
           ['match', { title: 'Match the pacemaker to its rate', prompt: 'Match each pacemaker site to its intrinsic rate.', pairs: [['SA node', '60–100/min'], ['AV junction', '40–60/min'], ['Ventricles', '20–40/min']] }],
+          ['kc', { q: 'The SA node stops firing, and the heart continues at a steady 48/min. Which pacemaker has most likely taken over?', o: ['The AV junction', 'The ventricles', 'A different part of the SA node', 'The Purkinje fibers at their normal rate'], a: 0, why: '48/min sits in the AV junction’s intrinsic range of 40–60/min. If the junction also failed, the ventricles would take over at 20–40/min. You will learn the other clues to a junctional rhythm, such as its P waves, in Unit 6.' }],
           ['h', 'Escape beats versus premature beats'],
           ['list', [
             'An <b>escape</b> beat comes <b>late</b>. A lower pacemaker fires because the higher one failed or paused. Escape beats are protective — never try to suppress them.',
@@ -187,9 +199,34 @@
           ['sort', { title: 'Escape or premature?', prompt: 'Sort each description into the right group.', buckets: ['Escape', 'Premature'], items: [
             ['Arrives later than the next expected beat', 0], ['Arrives earlier than the next expected beat', 1], ['A protective backup pacemaker', 0],
             ['Caused by an irritable focus', 1], ['A junctional rhythm at 45 after the SA node stops', 0], ['A PVC', 1]] }],
-          ['h', 'The autonomic nervous system'],
-          ['p', '<b>Sympathetic</b> stimulation speeds the SA node and AV conduction. <b>Parasympathetic</b> stimulation through the <b>vagus nerve</b> slows them. Vomiting, bearing down and pain can all cause a vagal slowing of the heart.'],
-          ['kc', { q: 'A regular, narrow-complex rhythm runs at 48/min with inverted P waves in Lead II. Where is it most likely coming from?', o: ['The AV junction', 'The SA node', 'The ventricles', 'The Purkinje fibers'], a: 0, why: 'A rate of 40–60 with a narrow QRS and inverted (retrograde) P waves points to a junctional pacemaker.' }]
+          ['h', 'The autonomic nervous system and the heart'],
+          ['p', 'The SA node sets its own pace, but it is never left alone. The <b>autonomic nervous system</b> adjusts the heart beat by beat, without any conscious effort. It has two branches that work like a car’s <b>accelerator</b> and <b>brake</b>, and the heart rate at any moment reflects the balance between them.'],
+          ['html', ANS_TABLE, 'The two branches of the autonomic nervous system. The sympathetic branch, fight or flight, uses norepinephrine and epinephrine on beta one receptors. It acts on the S A node, the A V node, the atria and the ventricles, making the heart faster, speeding A V conduction and strengthening contraction. The parasympathetic branch, rest and digest, travels in the vagus nerve and uses acetylcholine. It acts mainly on the S A node, the A V node and the atria, slowing the rate and A V conduction, with little effect on the ventricles.'],
+          ['p', 'At rest, the brake is gently on. This constant <b>vagal tone</b> holds the SA node below its own natural rate — a heart with no nerve supply, such as a transplanted heart, beats at about 90 to 110 per minute. That is why a fit athlete can rest at 50: strong vagal tone, not disease.'],
+          ['h', 'Rate, conduction and force: three words to know'],
+          ['list', [
+            '<b>Chronotropic</b> — affects the heart <b>rate</b> (chrono = time). Epinephrine is a positive chronotrope; vagal stimulation is negative.',
+            '<b>Dromotropic</b> — affects <b>conduction speed</b>, especially through the AV node (dromo = running). Vagal stimulation slows AV conduction and lengthens the PR interval.',
+            '<b>Inotropic</b> — affects the <b>force</b> of contraction. Sympathetic stimulation is positively inotropic: each beat squeezes harder.'
+          ]],
+          ['p', 'The sympathetic system works through <b>receptors</b>. <b>Beta-1</b> receptors in the heart raise the rate, conduction and force. <b>Beta-2</b> receptors mostly relax the airways and some blood vessels. <b>Alpha-1</b> receptors constrict blood vessels and raise blood pressure. A memory aid: you have <b>one heart (beta-1)</b> and <b>two lungs (beta-2)</b>.'],
+          ['match', { title: 'Name the effect', prompt: 'Match each term to what it changes.', pairs: [
+            ['Chronotropic', 'Heart rate'], ['Dromotropic', 'Conduction speed through the AV node'], ['Inotropic', 'Force of contraction'], ['Beta-1 receptors', 'Raise the heart’s rate, conduction and force']] }],
+          ['h', 'Reflexes and triggers'],
+          ['p', 'Pressure sensors called <b>baroreceptors</b> sit in the carotid arteries and the aortic arch. When blood pressure falls — from bleeding, dehydration or shock — they signal the brain to ease off the vagal brake and press the sympathetic accelerator: the heart speeds up, beats harder and the blood vessels tighten. When blood pressure rises, the reflex slows the heart. This is the <b>baroreceptor reflex</b>.'],
+          ['callout', '<b>Fast can be compensation.</b> A tachycardia in a patient who is bleeding or in shock is often the body defending its blood pressure. Look for and treat the cause — don’t focus on slowing the rate. A patient on beta-blockers may not be able to mount this response, so a “normal” heart rate can hide serious blood loss.'],
+          ['list', [
+            '<b>Things that increase vagal tone (slow the heart):</b> bearing down or straining (the Valsalva maneuver), vomiting and gagging, airway suctioning, pressure on the carotid sinus, severe pain or emotional shock (a vasovagal faint), and an inferior wall MI.',
+            '<b>Things that increase sympathetic tone (speed the heart):</b> pain, fear and anxiety, exercise, fever, blood loss and dehydration, low oxygen, and stimulant drugs such as cocaine and amphetamines.'
+          ]],
+          ['sort', { title: 'Accelerator or brake?', prompt: 'Sort each item: does it belong to the sympathetic or the parasympathetic system?', buckets: ['Sympathetic', 'Parasympathetic'], items: [
+            ['Releases norepinephrine', 0], ['Travels in the vagus nerve', 1], ['Stimulates beta-1 receptors', 0], ['Releases acetylcholine', 1],
+            ['Speeds the heart in a patient who is bleeding', 0], ['Slows the heart while a patient vomits or bears down', 1],
+            ['Makes the ventricles contract more forcefully', 0], ['Lengthens the PR interval', 1]] }],
+          ['note', '<b>Clinical link — medications.</b> <b>Atropine</b> blocks acetylcholine, taking the vagal brake off the SA and AV nodes, so it can speed a symptomatic sinus bradycardia or a block at the AV node. It does little where the vagus has little influence — in a transplanted heart, or a block below the AV node with a wide-complex escape rhythm. <b>Epinephrine</b> stimulates the sympathetic receptors; <b>beta-blockers</b> block beta-1 and slow the heart; <b>vagal maneuvers</b> and <b>adenosine</b> slow AV conduction to stop some fast rhythms. Always follow your local protocols.'],
+          ['kc', { q: 'A patient with a large blood loss has a heart rate of 128/min. What is the most likely reason for the fast rate?', o: ['The baroreceptor reflex increasing sympathetic tone to protect blood pressure', 'Increased vagal tone', 'A failure of the SA node', 'The sodium–potassium pump speeding up'], a: 0, why: 'Falling blood pressure triggers the baroreceptor reflex: less vagal tone and more sympathetic tone, so the heart speeds up and beats harder. Treat the cause.' }],
+          ['kc', { q: 'How does atropine increase the heart rate?', o: ['It blocks the vagus nerve’s effect (acetylcholine) on the SA and AV nodes', 'It stimulates beta-1 receptors directly', 'It adds sodium to the pacemaker cells', 'It shortens the absolute refractory period of the ventricles'], a: 0, why: 'Atropine is a parasympathetic blocker. It takes the vagal brake off the SA and AV nodes, which is why it helps less when the problem is below the AV node.' }],
+          ['kc', { q: 'A drug that makes the heart contract more forcefully has what kind of effect?', o: ['Positive inotropic', 'Positive chronotropic', 'Negative dromotropic', 'Negative inotropic'], a: 0, why: 'Inotropic effects change the force of contraction. Chronotropic effects change the rate, and dromotropic effects change conduction speed.' }],
         ] },
         { id: 'refractory', title: 'Refractory periods and the vulnerable period', min: 6, blocks: [
           ['p', 'After a cell depolarizes, it needs time to recover before it can fire again. That recovery time is the <b>refractory period</b>, and it explains why some early beats are so dangerous.'],
@@ -209,6 +246,12 @@
         Q('pacers', 'What is the intrinsic rate of the AV junction?', ['40–60/min', '60–100/min', '20–40/min', '100–150/min'], 'The AV junction fires at 40–60/min when higher pacemakers fail.'),
         Q('pacers', 'What is the intrinsic rate of the ventricles?', ['20–40/min', '40–60/min', '60–100/min', '150–250/min'], 'A ventricular escape (idioventricular) rhythm runs at 20–40/min.'),
         Q('cells', 'What mainly causes depolarization of a cardiac cell?', ['Sodium moving into the cell', 'Potassium moving into the cell', 'Calcium leaving the cell', 'Oxygen entering the cell'], 'Sodium rushing in makes the inside of the cell positive. Potassium leaving the cell restores the resting state during repolarization.'),
+        Q('pacers', 'Which chemical messenger does the vagus nerve release at the heart?', ['Acetylcholine', 'Norepinephrine', 'Epinephrine', 'Adenosine'], 'The parasympathetic (vagus) nerve releases acetylcholine, which slows the SA node and AV conduction. Sympathetic nerves release norepinephrine.'),
+        Q('pacers', 'Which receptors in the heart raise its rate, conduction and force when stimulated?', ['Beta-1', 'Beta-2', 'Alpha-1', 'Muscarinic'], 'Beta-1 receptors are the heart’s sympathetic receptors: “one heart, two lungs” — beta-2 receptors mainly act on the airways.'),
+        Q('pacers', 'What does a negative dromotropic effect do?', ['Slows conduction through the AV node', 'Slows the heart rate', 'Weakens contraction', 'Speeds conduction through the ventricles'], 'Dromotropic effects change conduction speed, especially through the AV node. A negative dromotrope, such as vagal stimulation, lengthens the PR interval.'),
+        Q('pacers', 'Why does a transplanted heart rest at about 90–110/min?', ['It has no vagal tone holding the SA node back', 'Its SA node is damaged', 'It is always under sympathetic stimulation', 'It is paced by the AV junction'], 'A transplanted heart has no nerve supply, so there is no vagal brake. The SA node runs at its natural rate of about 90–110/min.'),
+        Q('pacers', 'Which of these increases vagal tone and can slow the heart?', ['Bearing down (the Valsalva maneuver)', 'Blood loss', 'Fever', 'Cocaine use'], 'Straining, vomiting, suctioning and carotid sinus pressure increase vagal tone. Blood loss, fever and stimulants increase sympathetic tone.'),
+        Q('pacers', 'In a patient who is bleeding, why can beta-blockers be dangerous to overlook?', ['They can blunt the compensatory tachycardia, so a normal heart rate can hide shock', 'They make the heart beat faster', 'They cause ventricular fibrillation', 'They raise blood pressure'], 'Beta-blockers block the sympathetic beta-1 response, so the heart may not speed up to compensate for blood loss.'),
         Q('pacers', 'What effect does vagal (parasympathetic) stimulation have?', ['Slows the SA node and AV conduction', 'Speeds up the SA node', 'Widens the QRS', 'Causes ventricular fibrillation'], 'The vagus nerve slows the SA node and conduction through the AV node.'),
         Q('cells', 'What is the approximate resting membrane potential of a ventricular muscle cell?', ['−90 mV', '0 mV', '+20 mV', '−40 mV'], 'A working ventricular cell rests at about −90 mV. Pacemaker cells have no stable resting potential and fire at about −40 mV.'),
         Q('cells', 'How does the sodium–potassium pump move ions?', ['3 Na⁺ out and 2 K⁺ in, using ATP', '2 Na⁺ out and 3 K⁺ in, using ATP', '3 K⁺ out and 2 Na⁺ in, with no energy', 'Calcium in and sodium out'], 'The pump uses ATP to push 3 sodium ions out and pull 2 potassium ions in, maintaining the gradients after every beat.'),

@@ -749,22 +749,63 @@
       done: done
     });
   }
+  // Put-in-order activity: drag the boxes (mouse or touch). Keyboard: focus a
+  // box and use the up/down arrow keys.
   function orderActivity(el, d, done) {
     var items = d.items.slice(), list;
     do { list = shuffle(items); } while (list.join('|') === items.join('|'));
-    var body = $('.act-body', el);
-    function render(marks) {
-      body.innerHTML = '<ol class="ord-list">' + list.map(function (x, n) {
+    var body = $('.act-body', el), drag = null;
+    function locked() { var c = $('.act-btns [data-a="check"]', el); return c && c.disabled; }
+    function render(marks, focusIdx) {
+      body.innerHTML = '<p class="ord-hint">Drag the boxes into the right order.</p><ol class="ord-list" aria-label="' + esc(d.title) + '">' + list.map(function (x, n) {
         var m = marks ? (x === items[n] ? ' ok' : ' bad') : '';
-        return '<li class="ord-item' + m + '"><span class="ord-n">' + (n + 1) + '</span><span class="ord-t">' + esc(x) + '</span>' +
-          '<button class="tool-btn" data-mv="-1" data-n="' + n + '" aria-label="Move ' + esc(x) + ' up"' + (n === 0 ? ' disabled' : '') + '>▲</button>' +
-          '<button class="tool-btn" data-mv="1" data-n="' + n + '" aria-label="Move ' + esc(x) + ' down"' + (n === list.length - 1 ? ' disabled' : '') + '>▼</button></li>';
+        return '<li class="ord-item' + m + '" tabindex="0" data-n="' + n + '" aria-label="' + (n + 1) + ' of ' + list.length + ': ' + esc(x) + '. Use the arrow keys to move.">' +
+          '<span class="ord-n">' + (n + 1) + '</span><span class="ord-t">' + esc(x) + '</span><span class="ord-grip" aria-hidden="true">⋮⋮</span></li>';
       }).join('') + '</ol>';
+      if (focusIdx != null) { var f = $('[data-n="' + focusIdx + '"]', body); if (f) f.focus(); }
     }
-    body.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-mv]'); if (!b || b.disabled) return;
-      var n = +b.dataset.n, m = n + +b.dataset.mv, t = list[n]; list[n] = list[m]; list[m] = t;
-      render(); var f = $('[data-n="' + m + '"][data-mv="' + b.dataset.mv + '"]', body) || $('[data-n="' + m + '"]', body); if (f) f.focus();
+    function readOrder() { list = $all('.ord-item', body).map(function (li) { return list[+li.dataset.n]; }); }
+    body.addEventListener('pointerdown', function (e) {
+      var li = e.target.closest('.ord-item');
+      if (!li || locked() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      e.preventDefault();
+      drag = { li: li, y0: e.clientY, id: e.pointerId };
+      li.setPointerCapture(e.pointerId);
+      li.classList.add('dragging');
+      $all('.ord-item', body).forEach(function (x) { x.classList.remove('ok', 'bad'); });
+    });
+    body.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      var li = drag.li, dy = e.clientY - drag.y0;
+      li.style.transform = 'translateY(' + dy + 'px)';
+      var nb = dy > 0 ? li.nextElementSibling : li.previousElementSibling;
+      if (!nb) return;
+      var r = nb.getBoundingClientRect(), mid = r.top + r.height / 2, before = li.getBoundingClientRect().top - dy; // layout position, without the drag offset
+      if ((dy > 0 && e.clientY > mid) || (dy < 0 && e.clientY < mid)) {
+        if (dy > 0) li.parentNode.insertBefore(nb, li); else li.parentNode.insertBefore(li, nb);
+        // keep the box under the pointer after it moves in the list
+        li.style.transform = '';
+        drag.y0 += li.getBoundingClientRect().top - before;
+        li.style.transform = 'translateY(' + (e.clientY - drag.y0) + 'px)';
+      }
+    });
+    function endDrag(e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag.li.style.transform = '';
+      drag.li.classList.remove('dragging');
+      drag = null;
+      readOrder(); render();
+    }
+    body.addEventListener('pointerup', endDrag);
+    body.addEventListener('pointercancel', endDrag);
+    body.addEventListener('keydown', function (e) {
+      var li = e.target.closest('.ord-item');
+      if (!li || locked() || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+      e.preventDefault();
+      var n = +li.dataset.n, m = n + (e.key === 'ArrowUp' ? -1 : 1);
+      if (m < 0 || m >= list.length) return;
+      var t = list[n]; list[n] = list[m]; list[m] = t;
+      render(false, m);
     });
     render();
     checkFlow(el, {
