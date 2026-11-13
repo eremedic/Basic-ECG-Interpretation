@@ -18,12 +18,13 @@ On Instagram and TikTok, put the link in your bio and say "link in bio".
 | File | Use it for |
 | --- | --- |
 | `brand/profile-picture-1080x1080.png` | Profile picture for the Facebook Page and Instagram (it's shown as a circle) |
-| `brand/facebook-cover-1640x624.png` | Facebook Page cover photo. The text sits in the middle, so it isn't cut off on phones. |
+| `brand/facebook-cover-1640x624.png` | Facebook Page cover for the company as a whole: CSHealthED, healthcare education and consulting (healthcare, EMS, consulting, fire service). The text sits in the middle, so it isn't cut off on phones. |
+| `brand/facebook-cover-ecg-course-1640x624.png` | Alternative cover for promoting the ECG course, e.g. during launch week |
 | `brand/instagram-highlights/*.png` | Instagram Story Highlight covers: Start here, Course, Rhythms, ECG tips, Quiz, Certificate, FAQ |
 
 How to add a highlight cover: post a Story, tap **Highlight**, then **New**. Name it, for example "Start here". Then open the highlight and choose **Edit highlight → Edit cover**. To use one of these icons, first post the cover image as a Story (you can hide or archive it afterwards), then pick it as the cover. The highlight's name is typed in Instagram and shows under the circle, so the images have no text.
 
-To edit the text or make more images, change `src/posts.html` or `src/brand.html`, then run `node src/render.cjs`, `node src/render.cjs --portrait` or `node src/render-brand.cjs` (needs Playwright).
+To edit the text or make more images, change `src/posts.html` or `src/brand.html`, then run `node src/render.cjs`, `node src/render.cjs --portrait` or `node src/render-brand.cjs`; the company cover is `src/cover-company.html`, rendered with `node src/render-cover.cjs` (needs Playwright).
 
 ---
 
