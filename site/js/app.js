@@ -1526,7 +1526,16 @@
     var so = $('#sign-out');
     if (so) so.hidden = !account.token;
     var si = $('#sign-in-link');
-    if (si) si.hidden = !!account.token;
+    if (si) {
+      // signed in: the header link becomes "Sign out"
+      si.textContent = account.token ? 'Sign out' : 'Sign in';
+      si.setAttribute('href', account.token ? '#signout' : '#signin');
+      si.setAttribute('data-nav', account.token ? 'signout' : 'signin');
+      if (!si._wired) {
+        si._wired = true;
+        si.addEventListener('click', function (e) { if (account.token) { e.preventDefault(); signOut(); } });
+      }
+    }
   }
   // "Access until …" for enrolled students, with a renew button near the end of the year.
   function accessNote() {
