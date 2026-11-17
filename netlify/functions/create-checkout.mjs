@@ -26,7 +26,7 @@ export async function handle(req, deps) {
 					currency: 'usd',
 					unit_amount: deps.priceCents,
 					product_data: {
-						name: 'Basic ECG Interpretation — full course',
+						name: 'Basic ECG Interpretation Self-Paced Course',
 						description: 'One year of access: 9 narrated units, activities, quizzes, final exam and certificate.',
 						images: [`${deps.siteUrl}/assets/stripe-course.png`]
 					}
@@ -40,7 +40,7 @@ export async function handle(req, deps) {
 		line_items: [lineItem],
 		allow_promotion_codes: true,
 		metadata: { product: 'ecg-basic-course', student_name: name },
-		payment_intent_data: { description: 'Basic ECG Interpretation — full course', metadata: { product: 'ecg-basic-course', student_name: name } },
+		payment_intent_data: { description: 'Basic ECG Interpretation Self-Paced Course', metadata: { product: 'ecg-basic-course', student_name: name } },
 		custom_text: checkoutText(deps),
 		// Requires a Terms of Service URL in Stripe → Settings → Business → Public details.
 		...(deps.requireTerms ? { consent_collection: { terms_of_service: 'required' } } : {}),

@@ -1073,5 +1073,6 @@ a.lesson-row:hover { border-color: var(--c); }
 .buy-price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .buy-price b { font: 900 2.2rem var(--display); color: var(--heading); }
 .buy-price span { color: var(--muted); font-size: .92rem; }
-.buy-card .tick-list { margin-bottom: 18px; flex: 1; }
+.buy-card .tick-list { margin-bottom: 18px; flex: 1; align-content: start; }
 .buy-cta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.buy-img { display: block; width: 100%; max-width: 340px; height: auto; margin: 0 auto 16px; border-radius: 12px; }

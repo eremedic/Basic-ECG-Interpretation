@@ -1624,18 +1624,18 @@
   function viewPurchase() {
     var lessons = UNITS.reduce(function (a, u) { return a + u.lessons.length; }, 0), m = account.student && account.student.monitor;
     function card(o) {
-      return '<div class="buy-card" style="--c:' + o.color + '"><div class="buy-kicker">' + o.kicker + '</div><h2>' + o.title + '</h2>' +
+      return '<div class="buy-card" style="--c:' + o.color + '">' + (o.img || '') + '<div class="buy-kicker">' + o.kicker + '</div><h2>' + o.title + '</h2>' +
         '<div class="buy-price"><b>' + o.price + '</b><span>' + o.per + '</span></div>' +
         '<ul class="tick-list dark">' + o.items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
         '<div class="buy-cta">' + o.cta + '</div>' + (o.note ? '<p class="hint" style="margin:10px 0 0">' + o.note + '</p>' : '') + '</div>';
     }
     main.innerHTML = pageHead('#1b2a5b', '<a href="#home">Home</a> / Purchase', 'Purchase', 'Choose the course, the lab, or both. Secure checkout by Stripe.') +
       '<section class="section"><div class="wrap"><div class="buy-grid">' +
-      card({ color: '#e0262b', kicker: 'Course', title: 'Basic ECG Interpretation', price: PRICE + ' USD', per: 'one-time payment · 12 months of access',
+      card({ color: '#e0262b', kicker: 'Course', title: 'Basic ECG Interpretation Self-Paced Course', price: PRICE + ' USD', per: 'one-time payment · 12 months of access',
         items: ['All ' + UNITS.length + ' units and ' + lessons + ' narrated lessons', 'Knowledge checks, activities and patient scenarios', 'Unit quizzes and a final exam', 'A certificate of completion anyone can verify'],
         cta: paid() ? '<span class="badge">✓ You have the course</span> <a class="btn btn-ghost" href="#course">Go to the course →</a>' : '<a class="btn btn-primary" href="#enroll">Buy the course — ' + PRICE + '</a>',
         note: paid() ? '' : 'Unit 1 is free to try first. <a href="#course-electro">Start Unit 1 →</a>' }) +
-      card({ color: '#0e1a3d', kicker: 'Live Monitor', title: 'Basic ECG Interpretation Lab', price: MON_PRICE + ' USD', per: 'per month · cancel anytime',
+      card({ color: '#0e1a3d', kicker: 'Live Monitor', title: 'Basic ECG Interpretation Lab', img: '<img class="buy-img" src="assets/lab-monitor.webp" width="900" height="558" alt="The Lab’s cardiac monitor showing a live ECG, pulse oximetry and CO₂ waveforms with heart rate, SpO₂, blood pressure and EtCO₂ readings">', price: MON_PRICE + ' USD', per: 'per month · cancel anytime',
         items: ['300 live rhythms on a cardiac monitor', '50 each: sinus, atrial, junctional, ventricular, AV blocks and paced', 'Freeze, change leads, print strips and measure with calipers', 'Full interpretation and feedback on every strip'],
         cta: monitorOn() ? '<span class="badge">✓ You’re subscribed</span> <a class="btn btn-ghost" href="#monitor">Go to the lab →</a>' : '<a class="btn btn-primary" href="#monitor-subscribe">Subscribe — ' + MON_PRICE + '/month</a>',
         note: monitorOn() ? (m && m.until ? (m.cancelAtPeriodEnd ? 'Canceled; access until ' + esc(niceDate(m.until)) + '.' : 'Renews on ' + esc(niceDate(m.until)) + '.') : '') : 'The first 5 strips in each category are free. <a href="#monitor">Try the lab →</a>' }) +
