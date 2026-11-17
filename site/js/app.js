@@ -1572,6 +1572,15 @@
         return '<div class="cur-unit" style="--c:' + u.color + '"><span class="unit-num">' + (i + 1) + '</span><div><h3>' + esc(u.title) + (i === 0 ? ' <span class="badge">Free</span>' : '') + '</h3><p>' + esc(u.summary) + '</p></div></div>';
       }).join('') + '</div></div></section>' +
 
+      // the practice Lab, sold separately
+      '<section class="section" style="padding-top:0"><div class="wrap"><div class="lab-promo">' +
+      '<div><div class="lab-kicker">' + (monitorOn() ? 'You’re subscribed' : 'Sold separately · ' + MON_PRICE + '/month') + '</div><h2>Basic ECG Interpretation Lab</h2>' +
+      '<p>Practice on a live cardiac monitor. Watch real-time rhythms sweep across the screen, then name them, with full feedback on every strip.</p>' +
+      '<ul class="tick-list"><li>300 live rhythms: 50 each of sinus, atrial, junctional, ventricular, AV block and paced</li><li>Freeze, change leads, print strips and measure with calipers</li><li>Your score in every category, and a mixed review of all 300</li></ul>' +
+      '<div class="hero-cta">' + (monitorOn() ? '<a class="btn btn-primary" href="#monitor">Go to the Lab →</a>' : '<a class="btn btn-light" href="#monitor">Try the Lab free</a><a class="btn btn-primary" href="#purchase">Purchase</a>') + '</div>' +
+      (monitorOn() ? '' : '<p class="lab-note">The first 5 strips in each category are free. ' + MON_PRICE + '/month, cancel anytime. Not included in the course.</p>') + '</div>' +
+      '<div class="lab-mon" id="lab-mon" role="img" aria-label="The Lab’s cardiac monitor running a live ECG"></div></div></div></section>' +
+
       (paid() ? '' :
       '<section class="section" style="padding-top:0"><div class="wrap"><div class="enroll-card"><div><h2>Enroll in the full course</h2>' +
       '<ul class="tick-list"><li>All 9 units and ' + lessons + ' narrated lessons</li><li>Knowledge checks, activities and patient scenarios</li><li>Unlimited practice ECGs</li><li>Unit quizzes, the final exam and a verifiable certificate</li><li>A full year of access on any device</li></ul></div>' +
@@ -1615,6 +1624,14 @@
     });
     $all('.faq-q').forEach(function (q) { q.addEventListener('click', function () { q.parentElement.classList.toggle('open'); q.setAttribute('aria-expanded', q.parentElement.classList.contains('open')); }); });
     cleanup.push(function () { if (mon) mon.stop(); clearInterval(t); });
+    // the Lab's monitor in the Lab section, playing one of the free strips
+    var MB = window.ECGMonitorBank, labFree = [];
+    if (MB) MB.cats.forEach(function (c) { c.strips.forEach(function (x) { if (!x.locked && ['atrial', 'ventricular', 'blocks'].indexOf(c.id) >= 0 && x.r !== 'asystole' && x.r !== 'vf') labFree.push(x); }); });
+    if (labFree.length && $('#lab-mon')) {
+      var labMon = window.ECGLiveMonitor($('#lab-mon'), { mini: true });
+      labMon.load(labFree[Math.floor(Math.random() * labFree.length)]);
+      cleanup.push(function () { labMon.destroy(); });
+    }
   }
   function faq(q, a) {
     return '<div class="faq-item"><button class="faq-q" aria-expanded="false">' + esc(q) + '<span aria-hidden="true">+</span></button><div class="faq-a"><p>' + a + '</p></div></div>';
@@ -1641,7 +1658,7 @@
         items: ['All ' + UNITS.length + ' units and ' + lessons + ' narrated lessons', 'Knowledge checks, activities and patient scenarios', 'Unit quizzes and a final exam', 'A certificate of completion anyone can verify*'],
         cta: paid() ? '<span class="badge">✓ You have the course</span> <a class="btn btn-ghost" href="#course">Go to the course →</a>' : '<a class="btn btn-primary" href="#enroll">Buy the course — ' + PRICE + '</a>',
         note: paid() ? '' : 'Unit 1 is free to try first. <a href="#course-electro">Start Unit 1 →</a>' }) +
-      card({ color: '#0e1a3d', kicker: 'Live Monitor', title: 'Basic ECG Interpretation Lab', img: '<div class="buy-mon" id="buy-mon" role="img" aria-label="The Lab’s cardiac monitor running a live ECG"></div>', price: MON_PRICE + ' USD', per: 'per month · cancel anytime',
+      card({ color: '#0e1a3d', kicker: 'Lab', title: 'Basic ECG Interpretation Lab', img: '<div class="buy-mon" id="buy-mon" role="img" aria-label="The Lab’s cardiac monitor running a live ECG"></div>', price: MON_PRICE + ' USD', per: 'per month · cancel anytime',
         items: ['300 live rhythms on a cardiac monitor', '50 each: sinus, atrial, junctional, ventricular, AV blocks and paced', 'Freeze, change leads, print strips and measure with calipers', 'Full interpretation and feedback on every strip'],
         cta: monitorOn() ? '<span class="badge">✓ You’re subscribed</span> <a class="btn btn-ghost" href="#monitor">Go to the lab →</a>' : '<a class="btn btn-primary" href="#monitor-subscribe">Subscribe — ' + MON_PRICE + '/month</a>',
         note: monitorOn() ? (m && m.until ? (m.cancelAtPeriodEnd ? 'Canceled; access until ' + esc(niceDate(m.until)) + '.' : 'Renews on ' + esc(niceDate(m.until)) + '.') : '') : 'The first 5 strips in each category are free. <a href="#monitor">Try the lab →</a>' }) +

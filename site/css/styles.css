@@ -1108,3 +1108,11 @@ a.lesson-row:hover { border-color: var(--c); }
 .retrieve { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
 .retrieve h3 { margin: 0 0 6px; font-size: 1.05rem; }
 .retrieve p { margin: 0 0 12px; }
+/* landing: the practice Lab */
+.lab-promo { display: grid; grid-template-columns: 1.15fr 1fr; gap: 32px; align-items: center; background: linear-gradient(135deg, #0e1a3d, #1b2a5b); color: #fff; border-radius: 20px; padding: 32px; }
+.lab-promo h2 { color: #fff; margin: 6px 0 10px; }
+.lab-promo p { color: #d5ddf0; margin: 0 0 14px; }
+.lab-kicker { font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #3dff8f; }
+.lab-note { font-size: .82rem; color: #aab6d6 !important; margin: 12px 0 0 !important; }
+.lab-mon { width: 100%; max-width: 420px; justify-self: center; }
+@media (max-width: 860px) { .lab-promo { grid-template-columns: 1fr; padding: 24px; } }
