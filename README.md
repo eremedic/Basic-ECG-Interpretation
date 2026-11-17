@@ -12,6 +12,7 @@ recorded in Supabase.
 | `site/` | The static course site (landing page, enrollment, the course, certificate, certificate verification). |
 | `src/course.js` | The full course content. **Not published as-is.** |
 | `scripts/build.mjs` | Builds `site/js/course-preview.js` (Unit 1 only; other units show titles) and `netlify/data/course-full.json` (everything, bundled into the server function). |
+| `site/js/monitor.js`, `scripts/build-monitor-strips.mjs` | The **Live Monitor** (`/#monitor`): the cardiac monitor from the Cardiac Lab defib trainer, playing 300 strips (50 each: sinus, atrial, junctional, ventricular, AV blocks, paced) for students to name. The build script creates the strip bank (`site/js/monitor-strips.js`) from the ECG engine; the first 5 strips in each category are free. |
 | `netlify/functions/` | Server API at `/api/*`: `create-checkout`, `stripe-webhook`, `claim`, `request-link`, `course-content`, `certificate`, `verify-certificate`. |
 | `supabase/migrations/0001_ecg_course_students.sql` | The `ecg_course_students` table. |
 

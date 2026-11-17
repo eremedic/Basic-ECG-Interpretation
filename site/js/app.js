@@ -263,7 +263,7 @@
     return {
       data: d, save: save,
       done: function (k) { if (!d.lessons[k]) { d.lessons[k] = true; save(); } },
-      reset: function () { d.lessons = {}; d.kc = {}; d.quiz = {}; d.exam = null; d.passedOn = null; d.pos = {}; save(); }
+      reset: function () { d.lessons = {}; d.kc = {}; d.quiz = {}; d.exam = null; d.passedOn = null; d.pos = {}; d.mon = {}; save(); }
     };
   })();
   function lkey(u, l) { return u.id + '.' + l.id; }
@@ -1532,7 +1532,7 @@
 
       (paid() ? '' :
       '<section class="section" style="padding-top:0"><div class="wrap"><div class="enroll-card"><div><h2>Enroll in the full course</h2>' +
-      '<ul class="tick-list"><li>All 9 units and ' + lessons + ' narrated lessons</li><li>Knowledge checks, activities and patient scenarios</li><li>Unlimited practice ECGs</li><li>Unit quizzes, the final exam and a verifiable certificate</li><li>A full year of access on any device</li></ul></div>' +
+      '<ul class="tick-list"><li>All 9 units and ' + lessons + ' narrated lessons</li><li>Knowledge checks, activities and patient scenarios</li><li>Unlimited practice ECGs, plus 300 strips to name on a live cardiac monitor</li><li>Unit quizzes, the final exam and a verifiable certificate</li><li>A full year of access on any device</li></ul></div>' +
       '<div class="enroll-price"><b>' + PRICE + '</b><span>for one year of access</span>' + enrollCta('Enroll now') + '<small>Secure checkout by Stripe</small></div></div></div></section>') +
 
       '<section class="section" style="padding-top:0"><div class="wrap"><div class="section-head"><div><h2>Questions</h2></div></div><div class="faq">' +
@@ -1669,6 +1669,122 @@
     $('#signin-form').addEventListener('submit', function (e) { e.preventDefault(); requestLink(e.target.email.value.trim(), $('#signin-msg')); });
   }
 
+  /* ---------- Live Monitor: name live rhythms on a cardiac monitor ---------- */
+  // 300 strips (50 per category) in js/monitor-strips.js, shown on the monitor in
+  // js/monitor.js. A student's first answer to each strip is their score.
+  var MON = window.ECGMonitorBank, MON_FREE = 5;
+  var MON_COLORS = { sinus: '#2e9a4a', atrial: '#1e88e5', junctional: '#f08a1c', ventricular: '#d64545', blocks: '#7c3aed', paced: '#0e7490', mixed: '#1b2a5b' };
+  function monData() { return (course.data.mon = course.data.mon || {}); }
+  function monCat(id) {
+    if (id === 'mixed') {
+      if (!MON.mixed) { // every strip, in one fixed shuffled order
+        var all = [], r = ECGEngine.mulberry32(91);
+        MON.cats.forEach(function (c) { c.strips.forEach(function (x) { all.push(x); }); });
+        for (var i = all.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)), t = all[i]; all[i] = all[j]; all[j] = t; }
+        MON.mixed = { id: 'mixed', title: 'Mixed review', unit: null, strips: all };
+      }
+      return MON.mixed;
+    }
+    return MON.cats.filter(function (c) { return c.id === id; })[0];
+  }
+  function monStats(c) {
+    var d = monData(), ans = 0, ok = 0;
+    c.strips.forEach(function (x) { if (d[x.id] != null) { ans++; if (d[x.id]) ok++; } });
+    return { ans: ans, ok: ok, pct: ans ? Math.round(ok / ans * 100) : null };
+  }
+  function viewMonitorHome() {
+    var d = monData(), total = 0, ans = 0, ok = 0;
+    MON.cats.forEach(function (c) { var st = monStats(c); total += c.strips.length; ans += st.ans; ok += st.ok; });
+    function card(c, sub) {
+      var st = monStats(c);
+      return '<a class="lm-cat" href="#monitor-' + c.id + '" style="--c:' + MON_COLORS[c.id] + '"><h3>' + esc(c.title) + '</h3><p>' + sub + '</p>' +
+        '<div class="progress"><i style="width:' + Math.round(st.ans / c.strips.length * 100) + '%;background:' + MON_COLORS[c.id] + '"></i></div>' +
+        '<div class="card-meta"><span>' + st.ans + ' of ' + c.strips.length + ' answered</span><span>' + (st.pct == null ? 'Not started' : 'Score ' + st.pct + '%') + '</span></div></a>';
+    }
+    main.innerHTML = pageHead('#0e1a3d', '<a href="#home">Home</a> / Live Monitor', 'Live Monitor',
+      'Watch live rhythms on a cardiac monitor, then name them. ' + total + ' strips: 50 in each category. Freeze the screen, change leads, or print a 6-second strip and measure it with calipers.',
+      ans ? '<span class="badge" style="font-size:.9rem">' + ans + ' answered · ' + Math.round(ok / ans * 100) + '% correct</span>' : '') +
+      '<section class="section"><div class="wrap">' +
+      (paid() ? '' : '<div class="enroll-strip"><div><b>Try it free:</b> the first ' + MON_FREE + ' strips in every category are open. Enroll to unlock all ' + total + ' strips.</div><div class="enroll-strip-cta">' + enrollCta() + '</div></div>') +
+      '<div class="lm-cats">' + MON.cats.map(function (c) {
+        return card(c, 'Pairs with Unit ' + c.unit + ' · ' + c.rhythms.map(function (r) { return esc(RHYTHMS[r].short || RHYTHMS[r].name); }).join(', '));
+      }).join('') + card(monCat('mixed'), 'All ' + total + ' strips from every category, in random order.') + '</div>' +
+      '<p class="hint" style="margin-top:16px">Strips are computer-generated training simulations. Your first answer to each strip counts toward your score; you can try any strip again.</p>' +
+      '</div></section>';
+  }
+  function viewMonitorStrip(catId, num) {
+    var c = monCat(catId);
+    if (!c) return viewNotFound();
+    var d = monData(), color = MON_COLORS[c.id];
+    var n = num ? Math.max(1, Math.min(c.strips.length, num)) : 0;
+    if (!n) { for (var k = 0; k < c.strips.length; k++) if (d[c.strips[k].id] == null) { n = k + 1; break; } if (!n) n = 1; }
+    var strip = c.strips[n - 1], crumbs = '<a href="#home">Home</a> / <a href="#monitor">Live Monitor</a> / ' + esc(c.title);
+    if (!paid() && (c.id === 'mixed' || n > MON_FREE)) {
+      main.innerHTML = pageHead(color, crumbs, esc(c.title), 'Strip ' + n + ' of ' + c.strips.length) +
+        '<section class="section"><div class="wrap"><div class="panel" style="text-align:center"><h3 style="justify-content:center">' + lockIcon() + ' Part of the full course</h3>' +
+        '<p class="muted">The first ' + MON_FREE + ' strips in each category are free. Enroll for all 300 live strips, the full course, the final exam and your certificate.</p>' +
+        '<div class="hero-cta" style="justify-content:center">' + enrollCta() + '<a class="btn btn-ghost" href="#monitor">Back to the Live Monitor</a></div></div></div></section>';
+      return;
+    }
+    var st = monStats(c);
+    main.innerHTML = pageHead(color, crumbs, esc(c.title), 'Strip ' + n + ' of ' + c.strips.length + (c.unit ? ' · pairs with Unit ' + c.unit : '') + ' · ' + st.ans + ' answered' + (st.pct == null ? '' : ', ' + st.pct + '% correct')) +
+      '<section class="section"><div class="wrap lm-grid" style="--c:' + color + '"><div><div id="lm-dev"></div><div id="lm-print"></div></div>' +
+      '<aside class="panel lm-side"><div class="lm-top"><span class="kicker" style="color:' + color + '">Strip ' + n + ' of ' + c.strips.length + '</span>' +
+      '<a class="link-btn" href="#monitor">All categories</a></div>' +
+      '<div class="lm-dots" aria-label="Strips in this set">' + c.strips.map(function (x, i) {
+        var v = d[x.id]; return '<a href="#monitor-' + c.id + '-' + (i + 1) + '" title="Strip ' + (i + 1) + '" aria-label="Strip ' + (i + 1) + '"><i class="' + (v == null ? '' : v ? 'ok' : 'bad') + (i + 1 === n ? ' cur' : '') + '"></i></a>';
+      }).join('') + '</div>' +
+      '<p class="lm-q" style="margin-top:14px">What is this rhythm?</p><p class="hint" style="margin:-6px 0 10px">Work through rate, rhythm, P waves, PR interval and QRS. Use FREEZE or PRINT STRIP to measure.</p>' +
+      '<div class="lm-opts" id="lm-opts"></div><div id="lm-fb"></div>' +
+      '<div class="lm-top" style="margin:14px 0 0">' + (n > 1 ? '<a class="btn btn-ghost btn-sm" href="#monitor-' + c.id + '-' + (n - 1) + '">← Previous</a>' : '<span></span>') +
+      (n < c.strips.length ? '<a class="btn btn-primary btn-sm" id="lm-next" href="#monitor-' + c.id + '-' + (n + 1) + '">Next strip →</a>' : '<a class="btn btn-primary btn-sm" href="#monitor">Finish set →</a>') + '</div>' +
+      '</aside></div></section>';
+
+    var mon = window.ECGLiveMonitor($('#lm-dev'), { onPrint: printStrip });
+    mon.load(strip);
+    cleanup.push(function () { mon.destroy(); });
+
+    function printStrip(info) {
+      var box = $('#lm-print');
+      box.innerHTML = '<div class="panel lm-print"><div class="lm-top"><b>Printed strip · Lead ' + esc(info.lead) + ' · 6 seconds</b><span>' +
+        '<button class="tool-btn" data-p="cal">' + ICON.caliper + 'Calipers</button> <button class="tool-btn" data-p="close" aria-label="Close the printed strip">✕</button></span></div>' +
+        '<div class="strip-wrap"><canvas aria-label="Printed ECG strip" role="img"></canvas></div><p class="hint" style="margin:8px 0 0">Turn on Calipers, then drag across the strip to measure an interval.</p></div>';
+      var wrap = $('.strip-wrap', box), canvas = $('canvas', box), sinfo = null;
+      function draw() { sinfo = ECGRender.drawStrip(canvas, info.sig, { leads: [info.lead], mode: 'paper', start: info.start, seconds: 6, width: wrap.clientWidth || 700 }); }
+      draw();
+      var cal = ECGRender.attachCalipers(wrap, canvas, function () { return sinfo; });
+      onResize(function () { if (box.contains(canvas)) { cal.clear(); draw(); } });
+      box.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-p]'); if (!b) return;
+        if (b.dataset.p === 'close') { box.innerHTML = ''; return; }
+        var on = !wrap.classList.contains('calipers-on'); wrap.classList.toggle('calipers-on', on); b.classList.toggle('on', on); if (!on) cal.clear();
+      });
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // the question
+    var R = RHYTHMS[strip.r], labels = strip.opts.map(function (r) { return RHYTHMS[r].name; }), correct = strip.opts.indexOf(strip.r);
+    optionButtons($('#lm-opts'), labels, function (k) {
+      var ok = k === correct;
+      if (d[strip.id] == null) { d[strip.id] = ok ? 1 : 0; course.save(); }
+      markOptions($('#lm-opts'), correct, k);
+      var dot = $all('.lm-dots i')[n - 1]; if (dot) dot.className = (d[strip.id] ? 'ok' : 'bad') + ' cur';
+      var C = R.criteria;
+      var pr = strip.pr ? strip.pr + (strip.r === 'firstDeg' ? ': prolonged (over 0.20 s), constant' : ', constant') : C.pr;
+      var qrs = strip.wide === 1 ? 'Wide (0.12 s or more)' : strip.wide === 0 ? 'Narrow (under 0.12 s)' : C.qrs;
+      var rows = [['Rate', strip.rate], ['Rhythm', C.regularity], ['P waves', C.p], ['PR interval', pr], ['QRS', qrs]];
+      if (strip.note) rows.push(['On this strip', strip.note]);
+      function crit(r) { var x = RHYTHMS[r].criteria; return '<dl><dt>Rate</dt><dd>' + esc(x.rate) + '</dd><dt>Rhythm</dt><dd>' + esc(x.regularity) + '</dd><dt>P waves</dt><dd>' + esc(x.p) + '</dd><dt>PR</dt><dd>' + esc(x.pr) + '</dd><dt>QRS</dt><dd>' + esc(x.qrs) + '</dd></dl>'; }
+      $('#lm-fb').innerHTML = '<div class="explain" style="margin-top:12px"><div class="verdict ' + (ok ? 'ok' : 'bad') + '">' + (ok ? '✓ Correct: ' : '✗ Not quite. This is ') + esc(R.name) + '</div>' +
+        '<table class="lm-table">' + rows.map(function (rw) { return '<tr><th>' + esc(rw[0]) + '</th><td>' + esc(rw[1]) + '</td></tr>'; }).join('') + '</table>' +
+        (ok ? '' : '<div class="lm-cmp"><div class="you"><h5>You chose: ' + esc(RHYTHMS[strip.opts[k]].name) + '</h5>' + crit(strip.opts[k]) + '</div><div class="ans"><h5>Answer: ' + esc(R.name) + '</h5>' + crit(strip.r) + '</div></div>') +
+        '<p style="margin:10px 0 4px"><b>Key to recognizing it:</b> ' + esc(R.tips[0]) + '</p>' +
+        (R.care && R.care.length ? '<p style="margin:0"><b>Prehospital care:</b> ' + esc(R.care[0]) + '</p>' : '') +
+        '<p style="margin:10px 0 0"><a href="' + rhythmLesson(strip.r) + '">Review ' + esc(R.name) + ' in the course →</a></p></div>';
+      var nx = $('#lm-next'); if (nx) nx.focus({ preventScroll: true });
+    });
+  }
+
   /* ---------- terms of use & refund policy (public) ---------- */
   var SUPPORT = 'support@cshealthed.com';
   function viewTerms() {
@@ -1795,6 +1911,8 @@
     else if (h === 'signin') { viewSignIn(q); nav = 'signin'; }
     else if (h === 'verify') { viewVerify(q); nav = 'verify'; }
     else if (h === 'terms') { viewTerms(); nav = 'terms'; }
+    else if (h === 'monitor') { viewMonitorHome(); nav = 'monitor'; }
+    else if (/^monitor-[a-z]+(-\d+)?$/.test(h)) { var mm = /^monitor-([a-z]+)(?:-(\d+))?$/.exec(h); viewMonitorStrip(mm[1], mm[2] ? +mm[2] : 0); nav = 'monitor'; }
     else if (cm) {
       viewCourseRoute(cm[1], cm[2]);
       nav = cm[1] === 'exam' ? 'exam' : cm[1] === 'cert' ? 'cert' : 'course';
