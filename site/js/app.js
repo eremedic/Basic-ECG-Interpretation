@@ -1977,9 +1977,12 @@
 
   /* ---------- certificate verification (public) ---------- */
   function viewVerify(q) {
-    formPage('#0e1a3d', '<a href="#home">Home</a> / Verify a certificate', 'Verify a certificate', 'Check that a Basic ECG Interpretation certificate is genuine.',
+    formPage('#0e1a3d', '<a href="#home">Home</a> / Certificates', 'Verify or retrieve a certificate', 'Check that a Basic ECG Interpretation Certificate of Completion is genuine, or get your own certificate back.',
       '<form id="verify-form" class="stack-form"><label>Certificate ID<input name="id" type="text" placeholder="e.g. 3f2b…" value="' + esc(q.id || '') + '" required></label>' +
-      '<button class="btn btn-primary" type="submit">Verify</button><div id="verify-out" role="status"></div></form>');
+      '<button class="btn btn-primary" type="submit">Verify</button><div id="verify-out" role="status"></div></form>' +
+      '<div class="retrieve"><h3>Retrieve your own certificate</h3><p class="muted">Your certificate is kept with your course account. ' +
+      (paid() ? 'Open it to view, download or print it again.</p><a class="btn btn-ghost" href="#course-cert">View my certificate →</a>'
+        : 'Sign in with the email you enrolled with, then open <b>Certificate</b> to view, download or print it again.</p><a class="btn btn-ghost" href="#signin">Sign in →</a>') + '</div>');
     function check(id) {
       var out = $('#verify-out'); out.innerHTML = '<p class="muted">Checking…</p>';
       api('verify-certificate?id=' + encodeURIComponent(id.trim())).then(function (r) {

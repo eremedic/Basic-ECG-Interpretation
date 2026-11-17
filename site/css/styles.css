@@ -471,7 +471,7 @@ main { min-height: 70vh; outline: none; }
 .site-footer { background: var(--card); border-top: 1px solid var(--line); margin-top: 20px; }
 .footer-inner { display: grid; grid-template-columns: 220px 1fr; gap: 40px; padding-block: 40px; }
 .footer-brand img { width: 180px; }
-.footer-cols { display: grid; grid-template-columns: 1fr 1fr 1fr 1.4fr; gap: 24px; }
+.footer-cols { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 24px; }
 .footer-cols h4 { font-family: var(--font); font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
 .footer-cols a { display: block; color: var(--ink); text-decoration: none; padding: 3px 0; font-size: .93rem; }
 .footer-cols a:hover { color: var(--teal); }
@@ -1105,3 +1105,6 @@ a.lesson-row:hover { border-color: var(--c); }
 .cert-disclaimer { max-width: 860px; margin: 18px auto 0; padding: 14px 16px; border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 10px; background: var(--card); font-size: .82rem; line-height: 1.6; color: var(--muted); }
 .cert-disclaimer b { color: var(--heading); }
 .cert-fine { margin: 10px 0 0; font-size: .68rem; line-height: 1.45; color: #6b7590; text-align: center; }
+.retrieve { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.retrieve h3 { margin: 0 0 6px; font-size: 1.05rem; }
+.retrieve p { margin: 0 0 12px; }
