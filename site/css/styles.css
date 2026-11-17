@@ -1003,7 +1003,7 @@ a.lesson-row:hover { border-color: var(--c); }
 .lm-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
 @media (max-width:1100px){.lm-grid{grid-template-columns:minmax(0,1fr) 290px}}
 @media (max-width:900px){.lm-grid{grid-template-columns:minmax(0,1fr)}}
-.lm-side{position:sticky;top:84px}
+.lm-side{position:sticky;top:var(--lm-top,84px);max-height:calc(100vh - var(--lm-top,84px) - 12px);overflow:auto}
 @media (max-width:900px){.lm-side{position:static}}
 .lm-side .kicker{margin-bottom:6px}
 .lm-q{font:800 1.12rem var(--display);color:var(--heading);margin:0 0 12px}
@@ -1031,3 +1031,12 @@ a.lesson-row:hover { border-color: var(--c); }
 .lm-cat{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
 .lm-cat:hover{border-color:var(--c)}
 .lm-cat h3{margin:0 0 4px}.lm-cat p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
+
+/* Live Monitor strip page: slim title row so the monitor fits the screen */
+.lm-page{padding-top:14px;padding-bottom:28px}
+.lm-bar{display:flex;flex-direction:column;gap:2px;margin-bottom:10px}
+.lm-crumbs{font-size:.82rem;color:var(--muted)}.lm-crumbs a{color:inherit}
+.lm-title{font:900 1.5rem/1.15 var(--display);color:var(--heading);margin:0}
+.lm-title small{font:600 .9rem var(--font);color:var(--muted);margin-left:6px}
+.lm-page .dv{padding-top:14px}
+@media (max-width:760px){.lm-page .dv-keys{grid-template-columns:repeat(3,minmax(0,1fr))}.lm-page .dv-keys .krow{grid-template-columns:1fr}.lm-page .khint{display:none}.lm-page .dv .klab{font-size:9.5px}.lm-page .dv .key.charge{font-size:12px;min-height:40px}}

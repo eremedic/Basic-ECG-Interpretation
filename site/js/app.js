@@ -1727,10 +1727,11 @@
       return;
     }
     var st = monStats(c);
-    main.innerHTML = pageHead(color, crumbs, esc(c.title), 'Strip ' + n + ' of ' + c.strips.length + (c.unit ? ' · pairs with Unit ' + c.unit : '') + ' · ' + st.ans + ' answered' + (st.pct == null ? '' : ', ' + st.pct + '% correct')) +
-      '<section class="section"><div class="wrap lm-grid" style="--c:' + color + '"><div><div id="lm-dev"></div><div id="lm-print"></div></div>' +
-      '<aside class="panel lm-side"><div class="lm-top"><span class="kicker" style="color:' + color + '">Strip ' + n + ' of ' + c.strips.length + '</span>' +
-      '<a class="link-btn" href="#monitor">All categories</a></div>' +
+    // a slim title row instead of the page banner, so the monitor fits on the screen
+    main.innerHTML = '<section class="section lm-page" style="--c:' + color + '"><div class="wrap"><div class="lm-bar"><div class="lm-crumbs">' + crumbs + '</div>' +
+      '<h1 class="lm-title">' + esc(c.title) + ' <small>' + (c.unit ? 'Pairs with Unit ' + c.unit + ' · ' : '') + st.ans + ' answered' + (st.pct == null ? '' : ', ' + st.pct + '% correct') + '</small></h1></div>' +
+      '<div class="lm-grid"><div><div id="lm-dev"></div><div id="lm-print"></div></div>' +
+      '<aside class="panel lm-side"><div class="lm-top"><span></span><a class="link-btn" href="#monitor">All categories</a></div>' +
       '<div class="lm-dots" aria-label="Strips in this set">' + c.strips.map(function (x, i) {
         var v = d[x.id]; return '<a href="#monitor-' + c.id + '-' + (i + 1) + '" title="Strip ' + (i + 1) + '" aria-label="Strip ' + (i + 1) + '"><i class="' + (v == null ? '' : v ? 'ok' : 'bad') + (i + 1 === n ? ' cur' : '') + '"></i></a>';
       }).join('') + '</div>' +
@@ -1743,6 +1744,25 @@
     var mon = window.ECGLiveMonitor($('#lm-dev'), { onPrint: printStrip });
     mon.load(strip);
     cleanup.push(function () { mon.destroy(); });
+
+    // Scale the monitor so all of it fits in the window below the site header,
+    // as the Cardiac Lab defib trainer does, then line the page up under the header.
+    function fit(scroll) {
+      var dv = $('#lm-dev .dv'), bar = $('.lm-bar', main), hdr = $('.site-header');
+      if (!dv || !bar) return;
+      var top = hdr ? hdr.getBoundingClientRect().height : 0;
+      if (scroll) window.scrollTo(0, Math.max(0, bar.getBoundingClientRect().top + window.pageYOffset - top - 8));
+      dv.style.zoom = 1;
+      var nat = dv.getBoundingClientRect().height;
+      var avail = window.innerHeight - top - bar.getBoundingClientRect().height - 34;
+      var z = Math.max(0.5, Math.min(1, avail / nat));
+      dv.style.zoom = z < 0.995 ? z.toFixed(3) : 1;
+      main.style.setProperty('--lm-top', (top + 8) + 'px');
+      mon.setupCanvases();
+    }
+    fit(false);
+    requestAnimationFrame(function () { fit(true); }); // after the router's scroll to the top
+    onResize(function () { fit(false); });
 
     function printStrip(info) {
       var box = $('#lm-print');
