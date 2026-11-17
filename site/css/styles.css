@@ -859,6 +859,14 @@ a.lesson-row:hover { border-color: var(--c); }
 .stack-form .hint { margin: 0; color: var(--muted); font-size: .88rem; }
 .form-msg { color: var(--bad); font-size: .92rem; }
 .form-msg:empty { display: none; }
+.form-msg.ok { color: var(--ok-ink); }
+.stack-form label.pw-show { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--muted); font-size: .92rem; }
+.stack-form label.pw-show input { width: auto; padding: 0; }
+.pw-prompt, .pw-link { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line, #e2e7f0); }
+.pw-prompt h3, .pw-link h3 { margin: 0 0 6px; }
+.pw-prompt > p, .pw-link > p { margin: 0 0 14px; }
+.pw-link .form-msg { margin-top: 10px; color: var(--muted); }
+.pw-skip { margin-top: 16px; }
 #signin-msg, #cert-msg { color: var(--heading); }
 .verify-card { border-radius: 12px; padding: 14px 16px; margin-top: 4px; }
 .verify-card p { margin: 6px 0 0; }

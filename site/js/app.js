@@ -1723,46 +1723,139 @@
         $('.page-head h1').textContent = 'You’re enrolled' + (first ? ', ' + first : '') + '!';
         $('.page-head p').textContent = 'Thank you — the full course is unlocked' + (account.student && account.student.accessUntil ? ' until ' + niceDate(account.student.accessUntil) : ' for one year') + '. A receipt is on its way to ' + r.email + '.';
         var nu = UNITS[1];
-        $('#welcome-msg').outerHTML = '<p>All 9 units, the final exam and your certificate are now open. To use the course on another device, choose <b>Sign in</b> there and we’ll email you a link.</p>' +
-          '<div class="hero-cta"><a class="btn btn-primary" href="' + (unitPassed(UNITS[0]) && nu ? '#course-' + nu.id : '#course') + '">Start learning →</a><a class="btn btn-ghost" href="#course">Course overview</a></div>';
+        $('#welcome-msg').outerHTML = '<p>All 9 units, the final exam and your certificate are now open.</p>' +
+          '<div class="hero-cta"><a class="btn btn-primary" href="' + (unitPassed(UNITS[0]) && nu ? '#course-' + nu.id : '#course') + '">Start learning →</a><a class="btn btn-ghost" href="#course">Course overview</a></div>' + createPasswordPrompt();
+        wirePasswordForm('pw-create', {});
       });
     });
   }
 
-  /* ---------- sign in on another device ---------- */
+  /* ---------- sign in: password, or an emailed link (also the password reset) ---------- */
   function requestLink(email, msg) {
+    if (!email) { msg.textContent = 'Enter your email above first.'; return; }
     msg.textContent = 'Sending…';
     api('request-link', { body: { email: email } }).then(function (r) {
       msg.textContent = r.status === 200
-        ? 'If ' + email + ' is enrolled, a sign-in link is on its way. It works once and expires in 24 hours — check your spam folder too.'
+        ? 'If ' + email + ' is enrolled or subscribed, a link is on its way. It signs you in and lets you set a new password. It expires in 24 hours — check your spam folder too.'
         : (r.error || 'We couldn’t send the email. Please try again.');
     });
   }
+  function hasPassword() { return !!(account.student && account.student.hasPassword); }
+  function homeAfterSignIn() { return paid() || !monitorOn() ? '#course' : '#monitor'; }
+  // A form to create, change or reset the password. opts: current (ask for the
+  // current password), linkToken (reset from an email link), submit, onDone.
+  function passwordFormHtml(id, opts) {
+    return '<form id="' + id + '" class="stack-form pw-form">' +
+      '<input type="email" name="username" autocomplete="username" value="' + esc(account.student ? account.student.email : '') + '" hidden>' +
+      (opts.current ? '<label>Current password<input name="current" type="password" autocomplete="current-password" required></label>' : '') +
+      '<label>' + (opts.current ? 'New password' : 'Password') + ' <small>At least 8 characters</small><input name="pw" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>' +
+      '<label>Confirm password<input name="pw2" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>' +
+      '<label class="pw-show"><input type="checkbox" name="show"> Show passwords</label>' +
+      '<button class="btn btn-primary" type="submit">' + esc(opts.submit || 'Save password') + '</button>' +
+      '<div class="form-msg" role="status"></div></form>';
+  }
+  function wirePasswordForm(id, opts) {
+    var f = document.getElementById(id);
+    if (!f) return;
+    var msg = f.querySelector('.form-msg');
+    f.show.addEventListener('change', function () {
+      f.querySelectorAll('input[type=password],input[data-pw]').forEach(function (i) { i.setAttribute('data-pw', '1'); i.type = f.show.checked ? 'text' : 'password'; });
+    });
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      msg.className = 'form-msg';
+      if (f.pw.value.length < 8) { msg.textContent = 'Use at least 8 characters.'; return; }
+      if (f.pw.value !== f.pw2.value) { msg.textContent = 'The two passwords don’t match.'; return; }
+      var body = { password: f.pw.value };
+      if (opts.current) body.current_password = f.current.value;
+      if (opts.linkToken) body.link_token = opts.linkToken;
+      msg.textContent = 'Saving…';
+      f.querySelector('button[type=submit]').disabled = true;
+      api('set-password', { auth: true, body: body }).then(function (r) {
+        f.querySelector('button[type=submit]').disabled = false;
+        if (r.status !== 200) { msg.textContent = r.error || 'We couldn’t save your password. Please try again.'; return; }
+        if (account.student) account.student.hasPassword = true;
+        f.reset();
+        msg.className = 'form-msg ok';
+        msg.textContent = 'Password saved. Use it with ' + (account.student ? account.student.email : 'your email') + ' to sign in on any device.';
+        if (opts.onDone) opts.onDone();
+      });
+    });
+  }
+  function signedInLinks() {
+    return (paid() ? '<a class="btn btn-primary" href="#course">Go to my course →</a> ' : '') +
+      (monitorOn() ? '<a class="btn ' + (paid() ? 'btn-ghost' : 'btn-primary') + '" href="#monitor">Lab →</a> ' : '');
+  }
+  // Shown on the welcome pages after a purchase, when there's no password yet.
+  function createPasswordPrompt() {
+    if (!account.token || hasPassword()) return '';
+    return '<div class="pw-prompt"><h3>Create a password</h3><p class="muted">So you can sign in on your phone, tablet or another computer with ' + esc(account.student ? account.student.email : 'your email') + '.</p>' + passwordFormHtml('pw-create', { submit: 'Create password' }) + '</div>';
+  }
   function viewSignIn(q) {
+    var crumbs = '<a href="#home">Home</a> / Sign in';
     if (q.t) {
-      formPage('#1b2a5b', '<a href="#home">Home</a> / Sign in', 'Signing you in…', '', '<p class="muted" id="signin-msg">One moment…</p>');
-      api('claim', { body: { link_token: q.t } }).then(function (r) {
+      var linkToken = q.t;
+      history.replaceState(null, '', '#signin'); // keep the link token out of the address bar and history
+      formPage('#1b2a5b', crumbs, 'Signing you in…', '', '<p class="muted" id="signin-msg">One moment…</p>');
+      api('claim', { body: { link_token: linkToken } }).then(function (r) {
         if (r.status !== 200 || !r.token) {
           $('.page-head h1').textContent = 'This sign-in link didn’t work';
           if (r.expired) { lsSet(EXPIRED_KEY, r.accessUntil || 'yes'); $('.page-head h1').textContent = 'Your access has ended'; }
           $('#signin-msg').innerHTML = esc(r.error || 'Please request a new link.') + (r.expired ? ' <a href="#enroll">Renew for another year →</a>' : ' <a href="#signin">Send a new link →</a>');
           return;
         }
-        signIn(r.token, function () { history.replaceState(null, '', paid() || !monitorOn() ? '#course' : '#monitor'); route(); });
+        signIn(r.token, function () {
+          var had = hasPassword();
+          formPage('#1b2a5b', crumbs, had ? 'Set a new password' : 'Create your password', 'You’re signed in as ' + esc(r.email) + '. ' + (had ? 'Choose a new password, or skip to keep your current one.' : 'Create a password so next time you can sign in on any device without waiting for an email.'),
+            passwordFormHtml('pw-reset', { submit: had ? 'Save new password' : 'Create password' }) +
+            '<p class="hint pw-skip"><a href="' + homeAfterSignIn() + '">Skip for now →</a></p>');
+          wirePasswordForm('pw-reset', { linkToken: linkToken, onDone: function () {
+            $('.pw-skip').innerHTML = signedInLinks();
+          } });
+        });
       });
       return;
     }
     if (account.token && (paid() || monitorOn())) {
-      formPage('#1b2a5b', '<a href="#home">Home</a> / Sign in', 'You’re signed in', account.student ? 'Signed in as ' + esc(account.student.email) + '.' : '',
-        (paid() ? '<a class="btn btn-primary" href="#course">Go to my course →</a> ' : '') + (monitorOn() ? '<a class="btn ' + (paid() ? 'btn-ghost' : 'btn-primary') + '" href="#monitor">Live Monitor →</a> ' : '') + '<button class="btn btn-ghost" id="signout-btn">Sign out</button>');
+      var has = hasPassword();
+      formPage('#1b2a5b', crumbs, 'You’re signed in', account.student ? 'Signed in as ' + esc(account.student.email) + '.' : '',
+        '<div class="hero-cta">' + signedInLinks() + '<button class="btn btn-ghost" id="signout-btn">Sign out</button></div>' +
+        '<div class="pw-prompt"><h3>' + (has ? 'Change your password' : 'Create a password') + '</h3>' +
+        '<p class="muted">' + (has ? 'Forgot your current password? Sign out, then use “Email me a link” to reset it.' : 'So you can sign in on any device with your email and password.') + '</p>' +
+        passwordFormHtml('pw-change', { current: has, submit: has ? 'Change password' : 'Create password' }) + '</div>');
       $('#signout-btn').addEventListener('click', signOut);
+      wirePasswordForm('pw-change', { current: has });
       return;
     }
-    formPage('#1b2a5b', '<a href="#home">Home</a> / Sign in', 'Sign in to your course', 'Enrolled in the course or subscribed to the Live Monitor? Enter the email you used and we’ll send you a sign-in link for this device.',
-      '<form id="signin-form" class="stack-form"><label>Email<input name="email" type="email" autocomplete="email" required></label>' +
-      '<button class="btn btn-primary" type="submit">Email me a sign-in link</button><div class="form-msg" id="signin-msg" role="status"></div>' +
-      '<p class="hint">Not enrolled yet? <a href="#enroll">Enroll — ' + PRICE + '</a> or <a href="#course-electro">try Unit 1 free</a>.</p></form>');
-    $('#signin-form').addEventListener('submit', function (e) { e.preventDefault(); requestLink(e.target.email.value.trim(), $('#signin-msg')); });
+    formPage('#1b2a5b', crumbs, 'Sign in', 'For students enrolled in the course or subscribed to the Lab.',
+      '<form id="signin-form" class="stack-form">' +
+      '<label>Email<input name="email" type="email" autocomplete="username" required></label>' +
+      '<label>Password<input name="password" type="password" autocomplete="current-password" required></label>' +
+      '<button class="btn btn-primary" type="submit">Sign in</button><div class="form-msg" id="signin-msg" role="status"></div></form>' +
+      '<div class="pw-link"><h3>Forgot your password, or haven’t made one yet?</h3>' +
+      '<p class="muted">We’ll email you a link that signs you in on this device and lets you set a new password.</p>' +
+      '<button class="btn btn-ghost" type="button" id="link-btn">Email me a link</button><div class="form-msg" id="link-msg" role="status"></div></div>' +
+      '<p class="hint">Not enrolled yet? <a href="#purchase">See what’s available</a> or <a href="#course-electro">try Unit 1 free</a>.</p>');
+    var f = $('#signin-form');
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = $('#signin-msg'), btn = f.querySelector('button');
+      msg.className = 'form-msg'; msg.textContent = 'Signing in…'; btn.disabled = true;
+      api('login', { body: { email: f.email.value.trim(), password: f.password.value } }).then(function (r) {
+        btn.disabled = false;
+        if (r.status !== 200 || !r.token) {
+          if (r.expired) lsSet(EXPIRED_KEY, r.accessUntil || 'yes');
+          msg.innerHTML = esc(r.error || 'We couldn’t sign you in. Please try again.') + (r.expired ? ' <a href="#enroll">Renew for another year →</a>' : '');
+          return;
+        }
+        msg.textContent = '';
+        signIn(r.token, function () { location.hash = homeAfterSignIn(); });
+      });
+    });
+    $('#link-btn').addEventListener('click', function () {
+      if (!f.email.value.trim() || !f.email.checkValidity()) { $('#link-msg').textContent = 'Enter your email above first.'; f.email.focus(); return; }
+      requestLink(f.email.value.trim(), $('#link-msg'));
+    });
   }
 
   /* ---------- Live Monitor: name live rhythms on a cardiac monitor ---------- */
@@ -1875,8 +1968,9 @@
         var first = (r.name || '').split(' ')[0], m = account.student && account.student.monitor;
         $('.page-head h1').textContent = 'The Live Monitor is unlocked' + (first ? ', ' + first : '') + '!';
         $('.page-head p').textContent = 'Thank you. All 300 strips are open' + (m && m.until ? '; your subscription renews on ' + niceDate(m.until) : '') + '. A receipt is on its way to ' + r.email + '.';
-        $('#wm-msg').outerHTML = '<p>Manage or cancel your subscription any time from the Live Monitor page. To use it on another device, choose <b>Sign in</b> there and we’ll email you a link.</p>' +
-          '<div class="hero-cta"><a class="btn btn-primary" href="#monitor">Start the Live Monitor →</a></div>';
+        $('#wm-msg').outerHTML = '<p>Manage or cancel your subscription any time from the Lab page.</p>' +
+          '<div class="hero-cta"><a class="btn btn-primary" href="#monitor">Start the Live Monitor →</a></div>' + createPasswordPrompt();
+        wirePasswordForm('pw-create', {});
       });
     });
   }

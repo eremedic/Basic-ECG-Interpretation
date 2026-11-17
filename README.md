@@ -13,7 +13,7 @@ recorded in Supabase.
 | `src/course.js` | The full course content. **Not published as-is.** |
 | `scripts/build.mjs` | Builds `site/js/course-preview.js` (Unit 1 only; other units show titles) and `netlify/data/course-full.json` (everything, bundled into the server function). |
 | `site/js/monitor.js`, `scripts/build-monitor-strips.mjs` | The **Live Monitor** (`/#monitor`), a separate **$14.99/month Stripe subscription**: the cardiac monitor from the Cardiac Lab defib trainer, playing 300 strips (50 each: sinus, atrial, junctional, ventricular, AV blocks, paced) for students to name. The first 5 strips in each category are free. The build writes the free strips to `site/js/monitor-strips.js` and the full bank to `netlify/data/monitor-full.json`, which the `monitor-bank` function serves only to active subscribers. |
-| `netlify/functions/` | Server API at `/api/*`: `create-checkout`, `stripe-webhook`, `claim`, `request-link`, `course-content`, `certificate`, `verify-certificate`. |
+| `netlify/functions/` | Server API at `/api/*`: `create-checkout`, `stripe-webhook`, `claim`, `login`, `set-password`, `request-link`, `course-content`, `certificate`, `verify-certificate`. |
 | `supabase/migrations/0001_ecg_course_students.sql` | The `ecg_course_students` table. |
 
 Student flow:
@@ -21,8 +21,9 @@ Student flow:
 1. **Enroll**: the student enters a name and email → Stripe Checkout ($49).
 2. Stripe sends them back to `/#welcome`. The site confirms the payment with Stripe and records the student, and the browser gets an access token. The full course then unlocks on that device.
 3. The Stripe webhook also records every payment, so it's recorded even if the student closes the tab.
-4. **Other devices:** *Sign in* emails a one-time sign-in link, valid for 24 hours, sent through Resend.
-5. **Certificate:** after passing the final exam (80%+), the student issues their certificate. It's stored with a unique ID that anyone can check at `/#verify?id=…`.
+4. **Password:** right after purchase the student is offered to create a password. On any device they sign in with email + password (`/api/login`). Only a salted scrypt hash is stored; 10 wrong passwords in a row pause password sign-in for 15 minutes.
+5. **Forgot password / no password yet:** *Email me a link* sends a sign-in link (valid 24 hours, sent through Resend). It signs them in and lets them set a new password (`/api/set-password`). Changing a password while signed in needs the current one.
+6. **Certificate:** after passing the final exam (80%+), the student issues their certificate. It's stored with a unique ID that anyone can check at `/#verify?id=…`.
 
 Lesson progress is saved in each browser. Enrollment and certificates are stored on the server.
 
@@ -49,6 +50,8 @@ Then run `supabase/migrations/0002_one_year_access.sql`, which adds `access_expi
 
 Then run `supabase/migrations/0003_live_monitor_subscription.sql`, which adds the Live Monitor subscription columns (`monitor_status`, `monitor_subscription_id`, `monitor_current_period_end`, `monitor_cancel_at_period_end`, `monitor_started_at`). A row can be a course student, a Live Monitor subscriber, or both.
 
+Then run `supabase/migrations/0004_passwords.sql`, which adds the password columns (`password_hash`, `password_set_at`, `password_failed_count`, `password_locked_until`).
+
 ### 2. Netlify
 
 Create a new site from this repository. The build settings come from `netlify.toml`. Then add these environment variables under **Site configuration → Environment variables**:
@@ -60,7 +63,7 @@ Create a new site from this repository. The build settings come from `netlify.to
 | `SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → `service_role` key (server only, never in the browser) |
 | `ACCESS_TOKEN_SECRET` | A long random string, e.g. the output of `openssl rand -hex 32`. Changing it signs everyone out (they can sign in again by email). |
-| `RESEND_API_KEY` | Resend → API Keys (used for sign-in link emails) |
+| `RESEND_API_KEY` | Resend → API Keys (used for sign-in and password-reset link emails) |
 | `SITE_URL` | Your public address, e.g. `https://ecg.cshealthed.com` (no trailing slash) |
 | `EMAIL_FROM` *(optional)* | Defaults to `CSHealthED <no-reply@cshealthed.com>` |
 | `STRIPE_PRICE_ID` *(optional)* | A Stripe Price to charge. Without it, checkout charges $49.00 USD. |

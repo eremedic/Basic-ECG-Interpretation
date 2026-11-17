@@ -11,6 +11,8 @@ import { handle as requestLink } from '../netlify/functions/request-link.mjs';
 import { handle as courseContent } from '../netlify/functions/course-content.mjs';
 import { handle as certificate } from '../netlify/functions/certificate.mjs';
 import { handle as verifyCert } from '../netlify/functions/verify-certificate.mjs';
+import { handle as login } from '../netlify/functions/login.mjs';
+import { handle as setPassword } from '../netlify/functions/set-password.mjs';
 
 const body = async (res) => [res.status, await res.json()];
 
@@ -151,7 +153,7 @@ test('course-content: full course for enrolled students only', async () => {
 	const { accessUntil, canRenew, course: crs, monitor, ...rest } = r.student;
 	assert.equal(crs.active, true);
 	assert.equal(monitor.active, false);
-	assert.deepEqual(rest, { name: 'Pat Student', email: 'pat@example.com', certificate: null });
+	assert.deepEqual(rest, { name: 'Pat Student', email: 'pat@example.com', hasPassword: false, certificate: null });
 	const days = (new Date(accessUntil) - Date.now()) / 86400000;
 	assert.ok(days > 364 && days <= 365, 'one year of access');
 	assert.equal(canRenew, false);
@@ -394,4 +396,67 @@ test('Live Monitor: a stale saved customer (other mode) does not break checkout 
 	const [st] = await body(await monitorPortal(post('/api/monitor-portal', {}, { authorization: `Bearer ${token}` }), deps));
 	assert.equal(st, 200);
 	assert.equal(deps.stripe.portals[0].customer, sub.customer, '…the portal uses the subscription customer');
+});
+
+test('passwords: create after purchase, sign in, wrong password, change, reset by link', async () => {
+	const deps = fakeDeps();
+	const { token } = await enroll(deps);
+	const auth = { authorization: `Bearer ${token}` };
+	const row = () => deps.db.rows.find((r) => r.email === 'pat@example.com');
+
+	// no password yet: login fails generically
+	let [st, r] = await body(await login(post('/api/login', { email: 'pat@example.com', password: 'whatever123' }), deps));
+	assert.equal(st, 401);
+	assert.match(r.error, /incorrect/);
+	[, r] = await body(await me(get('/api/me', auth), deps));
+	assert.equal(r.student.hasPassword, false);
+
+	// rules
+	assert.equal((await setPassword(post('/api/set-password', { password: 'short' }, auth), deps)).status, 400);
+	assert.equal((await setPassword(post('/api/set-password', { password: 'long enough 1' }), deps)).status, 401, 'needs sign-in');
+
+	// first password: the access token is enough; only a hash is stored
+	assert.equal((await setPassword(post('/api/set-password', { password: 'heart-rhythm-1' }, auth), deps)).status, 200);
+	assert.match(row().password_hash, /^scrypt\$/);
+	assert.ok(!row().password_hash.includes('heart-rhythm-1'));
+	[, r] = await body(await me(get('/api/me', auth), deps));
+	assert.equal(r.student.hasPassword, true);
+
+	// sign in (email is case-insensitive)
+	[st, r] = await body(await login(post('/api/login', { email: 'PAT@example.com', password: 'heart-rhythm-1' }), deps));
+	assert.equal(st, 200);
+	assert.equal(verifyToken(r.token, 'access', deps.secret), 'pat@example.com');
+	assert.equal((await login(post('/api/login', { email: 'pat@example.com', password: 'nope-nope-1' }), deps)).status, 401);
+	assert.equal((await login(post('/api/login', { email: 'nobody@example.com', password: 'heart-rhythm-1' }), deps)).status, 401);
+
+	// changing it needs the current password (or a link)
+	assert.equal((await setPassword(post('/api/set-password', { password: 'new-password-2' }, auth), deps)).status, 403);
+	assert.equal((await setPassword(post('/api/set-password', { password: 'new-password-2', current_password: 'wrong-one' }, auth), deps)).status, 403);
+	assert.equal((await setPassword(post('/api/set-password', { password: 'new-password-2', current_password: 'heart-rhythm-1' }, auth), deps)).status, 200);
+	assert.equal((await login(post('/api/login', { email: 'pat@example.com', password: 'heart-rhythm-1' }), deps)).status, 401);
+	assert.equal((await login(post('/api/login', { email: 'pat@example.com', password: 'new-password-2' }), deps)).status, 200);
+
+	// forgot it: the emailed link signs in and allows a reset; another person's link doesn't
+	await requestLink(post('/api/request-link', { email: 'pat@example.com' }), deps);
+	assert.match(deps.sent.at(-1).subject, /reset/i);
+	const link = decodeURIComponent(deps.sent.at(-1).text.match(/#signin\?t=([^\s]+)/)[1]);
+	const other = signToken('link', 'someone@example.com', deps.secret);
+	assert.equal((await setPassword(post('/api/set-password', { password: 'reset-password-3', link_token: other }, auth), deps)).status, 403);
+	assert.equal((await setPassword(post('/api/set-password', { password: 'reset-password-3', link_token: link }, auth), deps)).status, 200);
+	assert.equal((await login(post('/api/login', { email: 'pat@example.com', password: 'reset-password-3' }), deps)).status, 200);
+});
+
+test('passwords: lockout after 10 wrong tries; ended access is refused', async () => {
+	const deps = fakeDeps();
+	const { token } = await enroll(deps);
+	await setPassword(post('/api/set-password', { password: 'heart-rhythm-1' }, { authorization: `Bearer ${token}` }), deps);
+	for (let i = 0; i < 10; i++) assert.equal((await login(post('/api/login', { email: 'pat@example.com', password: 'bad-guess-' + i }), deps)).status, 401);
+	assert.equal((await login(post('/api/login', { email: 'pat@example.com', password: 'heart-rhythm-1' }), deps)).status, 429, 'locked even with the right password');
+	const row = deps.db.rows.find((r) => r.email === 'pat@example.com');
+	row.password_locked_until = new Date(Date.now() - 1000).toISOString();
+	assert.equal((await login(post('/api/login', { email: 'pat@example.com', password: 'heart-rhythm-1' }), deps)).status, 200, 'unlocks after the wait');
+	row.access_expires_at = new Date(Date.now() - 1000).toISOString();
+	const [st, r] = await body(await login(post('/api/login', { email: 'pat@example.com', password: 'heart-rhythm-1' }), deps));
+	assert.equal(st, 403);
+	assert.equal(r.expired, true);
 });
