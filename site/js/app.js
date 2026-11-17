@@ -1635,11 +1635,19 @@
         items: ['All ' + UNITS.length + ' units and ' + lessons + ' narrated lessons', 'Knowledge checks, activities and patient scenarios', 'Unit quizzes and a final exam', 'A certificate of completion anyone can verify'],
         cta: paid() ? '<span class="badge">✓ You have the course</span> <a class="btn btn-ghost" href="#course">Go to the course →</a>' : '<a class="btn btn-primary" href="#enroll">Buy the course — ' + PRICE + '</a>',
         note: paid() ? '' : 'Unit 1 is free to try first. <a href="#course-electro">Start Unit 1 →</a>' }) +
-      card({ color: '#0e1a3d', kicker: 'Live Monitor', title: 'Basic ECG Interpretation Lab', img: '<img class="buy-img" src="assets/lab-monitor.webp" width="900" height="558" alt="The Lab’s cardiac monitor showing a live ECG, pulse oximetry and CO₂ waveforms with heart rate, SpO₂, blood pressure and EtCO₂ readings">', price: MON_PRICE + ' USD', per: 'per month · cancel anytime',
+      card({ color: '#0e1a3d', kicker: 'Live Monitor', title: 'Basic ECG Interpretation Lab', img: '<div class="buy-mon" id="buy-mon" role="img" aria-label="The Lab’s cardiac monitor running a live ECG"></div>', price: MON_PRICE + ' USD', per: 'per month · cancel anytime',
         items: ['300 live rhythms on a cardiac monitor', '50 each: sinus, atrial, junctional, ventricular, AV blocks and paced', 'Freeze, change leads, print strips and measure with calipers', 'Full interpretation and feedback on every strip'],
         cta: monitorOn() ? '<span class="badge">✓ You’re subscribed</span> <a class="btn btn-ghost" href="#monitor">Go to the lab →</a>' : '<a class="btn btn-primary" href="#monitor-subscribe">Subscribe — ' + MON_PRICE + '/month</a>',
         note: monitorOn() ? (m && m.until ? (m.cancelAtPeriodEnd ? 'Canceled; access until ' + esc(niceDate(m.until)) + '.' : 'Renews on ' + esc(niceDate(m.until)) + '.') : '') : 'The first 5 strips in each category are free. <a href="#monitor">Try the lab →</a>' }) +
       '</div><p class="hint" style="margin-top:16px;text-align:center">The course and the lab are sold separately. Already purchased? <a href="#signin">Sign in</a>. Questions: <a href="mailto:support@cshealthed.com">support@cshealthed.com</a> · <a href="#terms">Terms &amp; refunds</a></p></div></section>';
+    // a small live monitor on the Lab card, playing one of the free strips
+    var M = window.ECGMonitorBank, free = [];
+    if (M) M.cats.forEach(function (c) { c.strips.forEach(function (x) { if (!x.locked && ['sinus', 'atrial', 'blocks'].indexOf(c.id) >= 0) free.push(x); }); });
+    if (free.length && $('#buy-mon')) {
+      var mini = window.ECGLiveMonitor($('#buy-mon'), { mini: true });
+      mini.load(free[Math.floor(Math.random() * free.length)]);
+      cleanup.push(function () { mini.destroy(); });
+    }
   }
 
   /* ---------- enroll ---------- */
@@ -1766,7 +1774,7 @@
         '<div class="progress"><i style="width:' + Math.round(st.ans / c.strips.length * 100) + '%;background:' + MON_COLORS[c.id] + '"></i></div>' +
         '<div class="card-meta"><span>' + st.ans + ' of ' + c.strips.length + ' answered</span><span>' + (st.pct == null ? 'Not started' : 'Score ' + st.pct + '%') + '</span></div></a>';
     }
-    main.innerHTML = pageHead('#0e1a3d', '<a href="#home">Home</a> / Live Monitor', 'Live Monitor',
+    main.innerHTML = pageHead('#0e1a3d', '<a href="#home">Home</a> / Lab', 'Basic ECG Interpretation Lab',
       'Watch live rhythms on a cardiac monitor, then name them. ' + total + ' strips: 50 in each category. Freeze the screen, change leads, or print a 6-second strip and measure it with calipers.',
       ans ? '<span class="badge" style="font-size:.9rem">' + ans + ' answered · ' + Math.round(ok / ans * 100) + '% correct</span>' : '') +
       '<section class="section"><div class="wrap">' +
@@ -1778,7 +1786,7 @@
       '</div></section>';
     wireManage();
   }
-  function monCta(text) { return '<a class="btn btn-primary" href="#monitor-subscribe">' + (text || 'Subscribe — ' + MON_PRICE + '/month') + '</a>'; }
+  function monCta(text) { return '<a class="btn btn-primary" href="#purchase">' + (text || 'Purchase') + '</a>'; }
   // Subscription status (subscribers) or the offer (everyone else), above the categories.
   function monBanner(total) {
     var m = account.student && account.student.monitor;
@@ -1804,11 +1812,11 @@
   function viewMonitorSubscribe() {
     var st = account.student || {};
     if (monitorOn()) {
-      formPage('#0e1a3d', '<a href="#home">Home</a> / <a href="#monitor">Live Monitor</a> / Subscribe', 'You’re subscribed', 'Your Live Monitor subscription is active.',
+      formPage('#0e1a3d', '<a href="#home">Home</a> / <a href="#monitor">Lab</a> / Subscribe', 'You’re subscribed', 'Your Live Monitor subscription is active.',
         '<a class="btn btn-primary" href="#monitor">Go to the Live Monitor →</a>');
       return;
     }
-    formPage('#0e1a3d', '<a href="#home">Home</a> / <a href="#monitor">Live Monitor</a> / Subscribe', 'Basic ECG Interpretation Lab', 'Live Monitor subscription · ' + MON_PRICE + ' per month · all 300 live strips · cancel anytime',
+    formPage('#0e1a3d', '<a href="#home">Home</a> / <a href="#monitor">Lab</a> / Subscribe', 'Basic ECG Interpretation Lab', 'Live Monitor subscription · ' + MON_PRICE + ' per month · all 300 live strips · cancel anytime',
       '<ul class="tick-list dark"><li>300 live rhythms on a cardiac monitor: 50 each of sinus, atrial, junctional, ventricular, AV block and paced</li><li>Freeze, change leads, print strips and measure them with calipers</li><li>Full interpretation and side-by-side feedback on every strip, with your score per category</li><li>Separate from the course: you don’t need to buy the course to subscribe</li></ul>' +
       '<form id="mon-form" class="stack-form" autocomplete="on" style="margin-top:16px">' +
       '<label>Your name<input name="name" type="text" maxlength="120" autocomplete="name" required value="' + esc(st.name || '') + '"></label>' +
@@ -1831,7 +1839,7 @@
     });
   }
   function viewWelcomeMonitor(q) {
-    formPage('#0e1a3d', '<a href="#home">Home</a> / Live Monitor', 'Starting your subscription…', 'Confirming with Stripe.', '<p class="muted" id="wm-msg">One moment…</p>');
+    formPage('#0e1a3d', '<a href="#home">Home</a> / Lab', 'Starting your subscription…', 'Confirming with Stripe.', '<p class="muted" id="wm-msg">One moment…</p>');
     if (!q.session_id) { $('#wm-msg').textContent = 'No subscription was found in this link.'; return; }
     api('claim', { body: { session_id: q.session_id } }).then(function (r) {
       if (r.status !== 200 || !r.token) {
@@ -1855,12 +1863,12 @@
     var d = monData(), color = MON_COLORS[c.id];
     var n = num ? Math.max(1, Math.min(c.strips.length, num)) : 0;
     if (!n) { for (var k = 0; k < c.strips.length; k++) if (d[c.strips[k].id] == null) { n = k + 1; break; } if (!n) n = 1; }
-    var strip = c.strips[n - 1], crumbs = '<a href="#home">Home</a> / <a href="#monitor">Live Monitor</a> / ' + esc(c.title);
+    var strip = c.strips[n - 1], crumbs = '<a href="#home">Home</a> / <a href="#monitor">Lab</a> / ' + esc(c.title);
     if (!monitorOn() && (c.id === 'mixed' || n > MON_FREE || strip.locked)) {
       main.innerHTML = pageHead(color, crumbs, esc(c.title), 'Strip ' + n + ' of ' + c.strips.length) +
         '<section class="section"><div class="wrap"><div class="panel" style="text-align:center"><h3 style="justify-content:center">' + lockIcon() + ' Live Monitor subscription</h3>' +
         '<p class="muted">The first ' + MON_FREE + ' strips in each category are free. Subscribe for all 300 live strips: ' + MON_PRICE + '/month, cancel anytime. The Live Monitor is separate from the course.</p>' +
-        '<div class="hero-cta" style="justify-content:center">' + monCta() + (account.token ? '' : '<a class="btn btn-ghost" href="#signin">Sign in</a>') + '<a class="btn btn-ghost" href="#monitor">Back to the Live Monitor</a></div></div></div></section>';
+        '<div class="hero-cta" style="justify-content:center">' + monCta() + (account.token ? '' : '<a class="btn btn-ghost" href="#signin">Sign in</a>') + '<a class="btn btn-ghost" href="#monitor">Back to the Lab</a></div></div></div></section>';
       return;
     }
     if (strip.locked) { // subscribed, but the full set hasn't arrived yet
