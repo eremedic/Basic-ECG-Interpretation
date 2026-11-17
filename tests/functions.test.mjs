@@ -148,7 +148,9 @@ test('course-content: full course for enrolled students only', async () => {
 	const [s, r] = await body(await courseContent(get('/api/course-content', { authorization: `Bearer ${token}` }), deps, data));
 	assert.equal(s, 200);
 	assert.equal(r.course.UNITS.length, 2);
-	const { accessUntil, canRenew, ...rest } = r.student;
+	const { accessUntil, canRenew, course: crs, monitor, ...rest } = r.student;
+	assert.equal(crs.active, true);
+	assert.equal(monitor.active, false);
 	assert.deepEqual(rest, { name: 'Pat Student', email: 'pat@example.com', certificate: null });
 	const days = (new Date(accessUntil) - Date.now()) / 86400000;
 	assert.ok(days > 364 && days <= 365, 'one year of access');
@@ -270,4 +272,111 @@ test('one-year access: expires, blocks content and sign-in links, and renews', a
 	await enroll(deps);
 	const days2 = (new Date(row.access_expires_at) - Date.now()) / 86400000;
 	assert.ok(days2 > 374 && days2 <= 375, String(days2));
+});
+
+
+import { handle as monitorCheckout } from '../netlify/functions/create-monitor-checkout.mjs';
+import { handle as monitorBank } from '../netlify/functions/monitor-bank.mjs';
+import { handle as monitorPortal } from '../netlify/functions/monitor-portal.mjs';
+import { handle as me } from '../netlify/functions/me.mjs';
+import { handle as webhook2 } from '../netlify/functions/stripe-webhook.mjs';
+
+async function subscribeMonitor(deps, name = 'Sam Medic', email = 'Sam@Example.com', opts) {
+	const [st, c] = await body(await monitorCheckout(post('/api/create-monitor-checkout', { name, email }), deps));
+	assert.equal(st, 200);
+	const id = c.url.split('/').pop();
+	const sub = deps.stripe.subscribe(id, opts);
+	const [s2, r] = await body(await claim(post('/api/claim', { session_id: id }), deps));
+	assert.equal(s2, 200);
+	return { id, sub, token: r.token, claim: r };
+}
+
+test('Live Monitor: $14.99/month subscription checkout, sold on its own', async () => {
+	const deps = fakeDeps({ monitorPriceCents: 1499 });
+	await monitorCheckout(post('/api/create-monitor-checkout', { name: 'Sam Medic', email: 'SAM@example.com' }), deps);
+	const s = deps.stripe.created[0];
+	assert.equal(s.mode, 'subscription');
+	assert.equal(s.customer_email, 'sam@example.com');
+	assert.equal(s.line_items[0].price_data.unit_amount, 1499);
+	assert.deepEqual(s.line_items[0].price_data.recurring, { interval: 'month' });
+	assert.equal(s.metadata.product, 'ecg-live-monitor');
+	assert.equal(s.subscription_data.metadata.email, 'sam@example.com');
+	assert.equal(s.success_url, 'https://course.example.com/#welcome-monitor?session_id={CHECKOUT_SESSION_ID}');
+	assert.equal(s.customer_creation, undefined, 'not allowed in subscription mode');
+	const d2 = fakeDeps({ monitorPriceId: 'price_mon' });
+	await monitorCheckout(post('/api/create-monitor-checkout', { name: 'A', email: 'a@b.co' }), d2);
+	assert.deepEqual(d2.stripe.created[0].line_items[0], { price: 'price_mon', quantity: 1 });
+});
+
+test('Live Monitor: subscribing unlocks the full bank, without course access', async () => {
+	const deps = fakeDeps();
+	const { token, claim: c } = await subscribeMonitor(deps);
+	assert.equal(c.product, 'monitor');
+	const row = deps.db.rows[0];
+	assert.equal(row.email, 'sam@example.com');
+	assert.equal(row.monitor_status, 'active');
+	assert.equal(row.paid_at, undefined, 'no course purchase');
+	const auth = { authorization: `Bearer ${token}` };
+	const [s1, r1] = await body(await monitorBank(get('/api/monitor-bank', auth), deps, { cats: [1, 2] }));
+	assert.equal(s1, 200);
+	assert.deepEqual(r1.bank, { cats: [1, 2] });
+	assert.equal((await courseContent(get('/api/course-content', auth), deps, { UNITS: [] })).status, 403, 'the course is a separate purchase');
+	const [s2, r2] = await body(await me(get('/api/me', auth), deps));
+	assert.equal(s2, 200);
+	assert.equal(r2.student.monitor.active, true);
+	assert.equal(r2.student.course.active, false);
+	// already subscribed: no second subscription
+	assert.equal((await monitorCheckout(post('/api/create-monitor-checkout', { name: 'Sam', email: 'sam@example.com' }), deps)).status, 409);
+	// sign-in links work for subscribers
+	await requestLink(post('/api/request-link', { email: 'sam@example.com' }), deps);
+	assert.equal(deps.sent.length, 1);
+});
+
+test('Live Monitor: no subscription, no bank; course students subscribe on the same record', async () => {
+	const deps = fakeDeps();
+	const { token } = await enroll(deps); // course student
+	const auth = { authorization: `Bearer ${token}` };
+	assert.equal((await monitorBank(get('/api/monitor-bank', auth), deps, {})).status, 403);
+	await subscribeMonitor(deps, 'Pat Student', 'pat@example.com');
+	assert.equal(deps.db.rows.length, 1, 'same student record');
+	assert.equal(deps.stripe.created[1].customer, 'cus_123', 'reuses the Stripe customer from the course purchase');
+	assert.equal((await monitorBank(get('/api/monitor-bank', auth), deps, {})).status, 200);
+	assert.equal(deps.db.rows[0].paid_at != null, true, 'course purchase kept');
+});
+
+test('Live Monitor: webhook keeps the subscription current (renewal, cancellation)', async () => {
+	const deps = fakeDeps();
+	const { sub, token } = await subscribeMonitor(deps);
+	const auth = { authorization: `Bearer ${token}` };
+	const send = (type, obj) => webhook2(new Request('https://course.example.com/api/stripe-webhook', { method: 'POST', headers: { 'stripe-signature': 'good:whsec_test' }, body: JSON.stringify({ type, data: { object: obj } }) }), deps);
+	// renewal pushes the paid-through date
+	const later = Math.floor(Date.now() / 1000) + 60 * 86400;
+	assert.equal((await send('customer.subscription.updated', { ...sub, current_period_end: later })).status, 200);
+	assert.equal(deps.db.rows[0].monitor_current_period_end, new Date(later * 1000).toISOString());
+	// newer API versions put the period on the subscription item
+	const later2 = later + 86400;
+	await send('customer.subscription.updated', { ...sub, current_period_end: undefined, items: { data: [{ current_period_end: later2 }] } });
+	assert.equal(deps.db.rows[0].monitor_current_period_end, new Date(later2 * 1000).toISOString());
+	// cancel at period end: still active until then
+	await send('customer.subscription.updated', { ...sub, current_period_end: later, cancel_at_period_end: true });
+	assert.equal((await monitorBank(get('/api/monitor-bank', auth), deps, {})).status, 200);
+	// canceled: locked
+	await send('customer.subscription.deleted', { ...sub, status: 'canceled' });
+	assert.equal((await monitorBank(get('/api/monitor-bank', auth), deps, {})).status, 403);
+	// a canceled subscriber can subscribe again
+	assert.equal((await monitorCheckout(post('/api/create-monitor-checkout', { name: 'Sam', email: 'sam@example.com' }), deps)).status, 200);
+	// unrelated subscriptions are ignored
+	assert.equal((await send('customer.subscription.updated', { id: 'sub_other', status: 'active', metadata: {} })).status, 200);
+});
+
+test('Live Monitor: billing portal for subscribers only', async () => {
+	const deps = fakeDeps();
+	const { token: t0 } = await enroll(deps);
+	assert.equal((await monitorPortal(post('/api/monitor-portal', {}, { authorization: `Bearer ${t0}` }), deps)).status, 404);
+	const { token } = await subscribeMonitor(deps, 'Sam', 'sam@example.com');
+	const [st, r] = await body(await monitorPortal(post('/api/monitor-portal', {}, { authorization: `Bearer ${token}` }), deps));
+	assert.equal(st, 200);
+	assert.match(r.url, /^https:\/\/billing\.stripe\.test\//);
+	assert.equal(deps.stripe.portals[0].return_url, 'https://course.example.com/#monitor');
+	assert.equal((await me(get('/api/me'), deps)).status, 401);
 });

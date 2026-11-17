@@ -52,6 +52,8 @@ export function explainError(err) {
 		return { code: 'stripe_timeout', error: 'Payment setup problem: Stripe didn’t answer in time. Please try again in a moment.' };
 	if (type.startsWith('Stripe'))
 		return { code: 'stripe', error: 'Payment setup problem (Stripe): ' + msg };
+	if (/monitor_(status|subscription_id|current_period_end|cancel_at_period_end|started_at)/.test(msg))
+		return { code: 'db_migration', error: 'Database setup problem: the Live Monitor subscription columns are missing. Run supabase/migrations/0003_live_monitor_subscription.sql in the Supabase SQL Editor.' };
 	if (/access_expires_at/.test(msg))
 		return { code: 'db_migration', error: 'Database setup problem: the access_expires_at column is missing. Run supabase/migrations/0002_one_year_access.sql in the Supabase SQL Editor.' };
 	if (/does not exist|schema cache|ecg_course_students/i.test(msg) && /relation|table|schema/i.test(msg))

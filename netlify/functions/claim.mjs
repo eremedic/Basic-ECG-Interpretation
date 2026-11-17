@@ -5,6 +5,7 @@
 import { getDeps, missing } from '../lib/deps.mjs';
 import { json, readJson, safe } from '../lib/http.mjs';
 import { accessUntil, findStudent, hasAccess, recordPayment, touchSignIn } from '../lib/students.mjs';
+import { MONITOR_PRODUCT, monitorActive, monitorSessionComplete, recordMonitorCheckout } from '../lib/monitor.mjs';
 import { signToken, verifyToken } from '../lib/tokens.mjs';
 
 export async function handle(req, deps) {
@@ -22,6 +23,12 @@ export async function handle(req, deps) {
 		} catch {
 			return json(404, { error: 'We could not find that payment.' });
 		}
+		if (session.metadata?.product === MONITOR_PRODUCT) {
+			if (!monitorSessionComplete(session)) return json(402, { error: 'This subscription has not started yet.' });
+			const sub = await recordMonitorCheckout(deps.stripe, deps.db, session);
+			await touchSignIn(deps.db, sub.email);
+			return json(200, { token: signToken('access', sub.email, deps.secret), name: sub.name, email: sub.email, product: 'monitor' });
+		}
 		if (session.metadata?.product !== 'ecg-basic-course' || session.payment_status !== 'paid') {
 			return json(402, { error: 'This payment has not completed.' });
 		}
@@ -36,8 +43,11 @@ export async function handle(req, deps) {
 		const email = verifyToken(body.link_token, 'link', deps.secret);
 		if (!email) return json(401, { error: 'This sign-in link has expired. Request a new one.' });
 		const student = await findStudent(deps.db, email);
-		if (!student?.paid_at) return json(403, { error: 'No enrollment was found for this email.' });
-		if (!hasAccess(student)) return json(403, { expired: true, accessUntil: accessUntil(student).toISOString(), error: 'Your one-year access has ended. Enroll again to renew it.' });
+		if (!student || (!student.paid_at && !student.monitor_status)) return json(403, { error: 'No enrollment or subscription was found for this email.' });
+		if (!hasAccess(student) && !monitorActive(student)) {
+			if (student.paid_at) return json(403, { expired: true, accessUntil: accessUntil(student).toISOString(), error: 'Your one-year access has ended. Enroll again to renew it.' });
+			return json(403, { error: 'Your Live Monitor subscription has ended. Subscribe again to continue.' });
+		}
 		await touchSignIn(deps.db, email);
 		return json(200, { token: signToken('access', email, deps.secret), name: student.name, email });
 	}

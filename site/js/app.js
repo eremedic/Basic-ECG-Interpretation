@@ -1403,7 +1403,9 @@
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
   var EXPIRED_KEY = 'cshealthed-ecg-course-expired';
-  var account = { token: lsGet(ACCESS_KEY), student: null, paid: false };
+  var account = { token: lsGet(ACCESS_KEY), student: null, paid: false, monitor: false };
+  var MON_PRICE = '$14.99', MON_BANK_KEY = 'cshealthed-monitor-bank';
+  function monitorOn() { return account.monitor; }
   function niceDate(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); }
   // Set when this browser's year of access ran out (the date it ended).
   function expiredOn() { var v = lsGet(EXPIRED_KEY); return v ? (niceDate(v) || 'recently') : ''; }
@@ -1445,13 +1447,51 @@
   function signIn(token, then) {
     account.token = token;
     lsSet(ACCESS_KEY, token);
-    return loadFullCourse().then(function (ok) { if (then) then(ok); return ok; });
+    return refreshAccount().then(function () { if (then) then(account.paid); return account.paid; });
   }
   function signOut() {
-    account = { token: null, student: null, paid: false };
-    lsSet(ACCESS_KEY, null); lsSet(CONTENT_KEY, null);
+    account = { token: null, student: null, paid: false, monitor: false };
+    lsSet(ACCESS_KEY, null); lsSet(CONTENT_KEY, null); lsSet(MON_BANK_KEY, null);
     location.hash = '#home';
     location.reload();
+  }
+  // Replace the free Live Monitor strips with the full bank (subscribers).
+  function applyMonitorBank(full) {
+    var M = window.ECGMonitorBank;
+    if (!full || !full.full || !Array.isArray(full.cats) || !M) return false;
+    M.cats = full.cats; M.full = true; delete M.mixed;
+    account.monitor = true;
+    return true;
+  }
+  function loadMonitorBank() {
+    return api('monitor-bank', { auth: true }).then(function (r) {
+      if (r.status === 200 && r.bank) { applyMonitorBank(r.bank); lsSet(MON_BANK_KEY, JSON.stringify(r.bank)); return true; }
+      return account.monitor;
+    });
+  }
+  // Who is signed in, and what they have: the course, the Live Monitor, or both.
+  function refreshAccount() {
+    if (!account.token) return Promise.resolve();
+    var hadCourse = account.paid, hadMonitor = account.monitor;
+    return api('me', { auth: true }).then(function (r) {
+      if (r.status === 401) { // signed out on the server: back to the free preview
+        account = { token: null, student: null, paid: false, monitor: false };
+        lsSet(ACCESS_KEY, null); lsSet(CONTENT_KEY, null); lsSet(MON_BANK_KEY, null);
+        if (hadCourse || hadMonitor) location.reload(); else syncAccountUi();
+        return;
+      }
+      if (r.status !== 200 || !r.student) return; // offline: keep what is cached
+      var st = r.student, reload = false;
+      setStudent(st);
+      if (st.course && st.course.enrolled && !st.course.active) lsSet(EXPIRED_KEY, st.course.until || 'yes');
+      if (!(st.course && st.course.active) && hadCourse) { lsSet(CONTENT_KEY, null); reload = true; }
+      if (!(st.monitor && st.monitor.active) && hadMonitor) { lsSet(MON_BANK_KEY, null); reload = true; }
+      if (reload) { location.reload(); return; }
+      var jobs = [];
+      if (st.course && st.course.active) jobs.push(loadFullCourse());
+      if (st.monitor && st.monitor.active) jobs.push(loadMonitorBank());
+      return Promise.all(jobs);
+    });
   }
   // Fetch the full course for the signed-in student. Resolves true if enrolled.
   function loadFullCourse() {
@@ -1464,10 +1504,10 @@
         return true;
       }
       if (r.status === 401 || r.status === 403) {
-        // The token is no longer valid, or the year of access has ended: back to the free preview.
+        // no course access (any more): back to the free preview of the course
         var hadCourse = account.paid;
-        account.token = null; account.paid = false;
-        lsSet(ACCESS_KEY, null); lsSet(CONTENT_KEY, null);
+        account.paid = false;
+        lsSet(CONTENT_KEY, null);
         if (r.expired) lsSet(EXPIRED_KEY, r.accessUntil || 'yes');
         if (hadCourse) { location.reload(); return false; } // drop the full course from memory
         syncAccountUi();
@@ -1533,7 +1573,7 @@
 
       (paid() ? '' :
       '<section class="section" style="padding-top:0"><div class="wrap"><div class="enroll-card"><div><h2>Enroll in the full course</h2>' +
-      '<ul class="tick-list"><li>All 9 units and ' + lessons + ' narrated lessons</li><li>Knowledge checks, activities and patient scenarios</li><li>Unlimited practice ECGs, plus 300 strips to name on a live cardiac monitor</li><li>Unit quizzes, the final exam and a verifiable certificate</li><li>A full year of access on any device</li></ul></div>' +
+      '<ul class="tick-list"><li>All 9 units and ' + lessons + ' narrated lessons</li><li>Knowledge checks, activities and patient scenarios</li><li>Unlimited practice ECGs</li><li>Unit quizzes, the final exam and a verifiable certificate</li><li>A full year of access on any device</li></ul></div>' +
       '<div class="enroll-price"><b>' + PRICE + '</b><span>for one year of access</span>' + enrollCta('Enroll now') + '<small>Secure checkout by Stripe</small></div></div></div></section>') +
 
       '<section class="section" style="padding-top:0"><div class="wrap"><div class="section-head"><div><h2>Questions</h2></div></div><div class="faq">' +
@@ -1542,6 +1582,7 @@
       faq('What do I need?', 'A modern web browser. Narration uses your browser’s built-in voice and works best in Chrome, Edge or Safari.') +
       faq('What does the certificate show?', 'Your name, the course, your final exam score and the date, with a certificate ID anyone can verify on this site. It records completion of this course — check with your program or agency whether it counts toward your requirements.') +
       faq('Can I try it first?', 'Yes — Unit 1, The Heart’s Electrical System, is free, including its quiz.') +
+      faq('What is the Live Monitor?', 'A separate monthly subscription (' + MON_PRICE + '/month, cancel anytime): 300 live ECG rhythms to interpret on a cardiac monitor, with calipers and full feedback on every strip. The first 5 strips in each category are free to try. It is not included in the ' + PRICE + ' course. <a href="#monitor">See the Live Monitor →</a>') +
       faq('Can I get a refund?', 'Yes — email us within 14 days of purchase for a full refund, as long as a certificate hasn’t been issued. See the <a href="#terms">Terms &amp; Refund Policy</a>.') +
       faq('Questions about your purchase?', 'Email <a href="mailto:support@cshealthed.com">support@cshealthed.com</a>.') +
       '</div></div></section>';
@@ -1653,17 +1694,17 @@
           $('#signin-msg').innerHTML = esc(r.error || 'Please request a new link.') + (r.expired ? ' <a href="#enroll">Renew for another year →</a>' : ' <a href="#signin">Send a new link →</a>');
           return;
         }
-        signIn(r.token, function () { history.replaceState(null, '', '#course'); route(); });
+        signIn(r.token, function () { history.replaceState(null, '', paid() || !monitorOn() ? '#course' : '#monitor'); route(); });
       });
       return;
     }
-    if (paid()) {
+    if (account.token && (paid() || monitorOn())) {
       formPage('#1b2a5b', '<a href="#home">Home</a> / Sign in', 'You’re signed in', account.student ? 'Signed in as ' + esc(account.student.email) + '.' : '',
-        '<a class="btn btn-primary" href="#course">Go to my course →</a> <button class="btn btn-ghost" id="signout-btn">Sign out</button>');
+        (paid() ? '<a class="btn btn-primary" href="#course">Go to my course →</a> ' : '') + (monitorOn() ? '<a class="btn ' + (paid() ? 'btn-ghost' : 'btn-primary') + '" href="#monitor">Live Monitor →</a> ' : '') + '<button class="btn btn-ghost" id="signout-btn">Sign out</button>');
       $('#signout-btn').addEventListener('click', signOut);
       return;
     }
-    formPage('#1b2a5b', '<a href="#home">Home</a> / Sign in', 'Sign in to your course', 'Enrolled already? Enter the email you used and we’ll send you a sign-in link for this device.',
+    formPage('#1b2a5b', '<a href="#home">Home</a> / Sign in', 'Sign in to your course', 'Enrolled in the course or subscribed to the Live Monitor? Enter the email you used and we’ll send you a sign-in link for this device.',
       '<form id="signin-form" class="stack-form"><label>Email<input name="email" type="email" autocomplete="email" required></label>' +
       '<button class="btn btn-primary" type="submit">Email me a sign-in link</button><div class="form-msg" id="signin-msg" role="status"></div>' +
       '<p class="hint">Not enrolled yet? <a href="#enroll">Enroll — ' + PRICE + '</a> or <a href="#course-electro">try Unit 1 free</a>.</p></form>');
@@ -1673,7 +1714,7 @@
   /* ---------- Live Monitor: name live rhythms on a cardiac monitor ---------- */
   // 300 strips (50 per category) in js/monitor-strips.js, shown on the monitor in
   // js/monitor.js. A student's first answer to each strip is their score.
-  var MON = window.ECGMonitorBank, MON_FREE = 5;
+  var MON = window.ECGMonitorBank, MON_FREE = (MON && MON.free) || 5;
   var MON_COLORS = { sinus: '#2e9a4a', atrial: '#1e88e5', junctional: '#f08a1c', ventricular: '#d64545', blocks: '#7c3aed', paced: '#0e7490', mixed: '#1b2a5b' };
   function monData() { return (course.data.mon = course.data.mon || {}); }
   function monCat(id) {
@@ -1706,12 +1747,84 @@
       'Watch live rhythms on a cardiac monitor, then name them. ' + total + ' strips: 50 in each category. Freeze the screen, change leads, or print a 6-second strip and measure it with calipers.',
       ans ? '<span class="badge" style="font-size:.9rem">' + ans + ' answered · ' + Math.round(ok / ans * 100) + '% correct</span>' : '') +
       '<section class="section"><div class="wrap">' +
-      (paid() ? '' : '<div class="enroll-strip"><div><b>Try it free:</b> the first ' + MON_FREE + ' strips in every category are open. Enroll to unlock all ' + total + ' strips.</div><div class="enroll-strip-cta">' + enrollCta() + '</div></div>') +
+      monBanner(total) +
       '<div class="lm-cats">' + MON.cats.map(function (c) {
         return card(c, 'Pairs with Unit ' + c.unit + ' · ' + c.rhythms.map(function (r) { return esc(RHYTHMS[r].short || RHYTHMS[r].name); }).join(', '));
       }).join('') + card(monCat('mixed'), 'All ' + total + ' strips from every category, in random order.') + '</div>' +
       '<p class="hint" style="margin-top:16px">Strips are computer-generated training simulations. Your first answer to each strip counts toward your score; you can try any strip again.</p>' +
       '</div></section>';
+    wireManage();
+  }
+  function monCta(text) { return '<a class="btn btn-primary" href="#monitor-subscribe">' + (text || 'Subscribe — ' + MON_PRICE + '/month') + '</a>'; }
+  // Subscription status (subscribers) or the offer (everyone else), above the categories.
+  function monBanner(total) {
+    var m = account.student && account.student.monitor;
+    if (monitorOn()) {
+      return '<div class="access-note"><span>Your Live Monitor subscription is active' + (m && m.until ? (m.cancelAtPeriodEnd ? ' until <b>' + esc(niceDate(m.until)) + '</b>. It has been canceled and won’t renew.' : ' and renews on <b>' + esc(niceDate(m.until)) + '</b>.') : '.') + '</span>' +
+        ' <button class="btn btn-ghost btn-sm" id="mon-manage">Manage subscription</button><span class="form-msg" id="mon-manage-msg"></span></div>';
+    }
+    return '<div class="enroll-strip"><div><b>' + (m && m.status ? 'Your Live Monitor subscription has ended.' : 'Try it free:') + '</b> ' +
+      (m && m.status ? 'Subscribe again to unlock all ' + total + ' strips. The first ' + MON_FREE + ' in each category are still free.' :
+        'the first ' + MON_FREE + ' strips in every category are open. Unlock all ' + total + ' live strips with a Live Monitor subscription: <b>' + MON_PRICE + '/month</b>, cancel anytime. The Live Monitor is separate from the course.') +
+      '</div><div class="enroll-strip-cta">' + monCta() + (account.token ? '' : '<a class="btn btn-ghost" href="#signin">Sign in</a>') + '</div></div>';
+  }
+  function wireManage() {
+    var b = $('#mon-manage'); if (!b) return;
+    b.addEventListener('click', function () {
+      b.disabled = true; $('#mon-manage-msg').textContent = 'Opening Stripe…';
+      api('monitor-portal', { auth: true, body: {} }).then(function (r) {
+        if (r.status === 200 && r.url) { location.href = r.url; return; }
+        b.disabled = false; $('#mon-manage-msg').textContent = r.error || 'We couldn’t open your subscription settings. Please try again.';
+      });
+    });
+  }
+  function viewMonitorSubscribe() {
+    var st = account.student || {};
+    if (monitorOn()) {
+      formPage('#0e1a3d', '<a href="#home">Home</a> / <a href="#monitor">Live Monitor</a> / Subscribe', 'You’re subscribed', 'Your Live Monitor subscription is active.',
+        '<a class="btn btn-primary" href="#monitor">Go to the Live Monitor →</a>');
+      return;
+    }
+    formPage('#0e1a3d', '<a href="#home">Home</a> / <a href="#monitor">Live Monitor</a> / Subscribe', 'Subscribe to the Live Monitor', MON_PRICE + ' per month · all 300 live strips · cancel anytime',
+      '<ul class="tick-list dark"><li>300 live rhythms on a cardiac monitor: 50 each of sinus, atrial, junctional, ventricular, AV block and paced</li><li>Freeze, change leads, print strips and measure them with calipers</li><li>Full interpretation and side-by-side feedback on every strip, with your score per category</li><li>Separate from the course: you don’t need to buy the course to subscribe</li></ul>' +
+      '<form id="mon-form" class="stack-form" autocomplete="on" style="margin-top:16px">' +
+      '<label>Your name<input name="name" type="text" maxlength="120" autocomplete="name" required value="' + esc(st.name || '') + '"></label>' +
+      '<label>Email <small>(for receipts and sign-in links)</small><input name="email" type="email" maxlength="254" autocomplete="email" required value="' + esc(st.email || '') + '"></label>' +
+      '<button class="btn btn-primary" type="submit">Continue to secure payment — ' + MON_PRICE + '/month</button>' +
+      '<p class="hint">You’ll subscribe on Stripe’s secure checkout page, then come straight back with every strip unlocked. Billed monthly until you cancel; cancel any time from the Live Monitor page. See the <a href="#terms">Terms</a>.</p>' +
+      '<div class="form-msg" id="mon-msg" role="alert"></div></form>');
+    $('#mon-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.target, btn = $('button[type=submit]', f), msg = $('#mon-msg');
+      btn.disabled = true; btn.textContent = 'Opening secure checkout…'; msg.textContent = '';
+      api('create-monitor-checkout', { body: { name: f.name.value, email: f.email.value } }).then(function (r) {
+        if (r.status === 200 && r.url) { location.href = r.url; return; }
+        btn.disabled = false; btn.textContent = 'Continue to secure payment — ' + MON_PRICE + '/month';
+        if (r.alreadySubscribed) {
+          msg.innerHTML = esc(r.error) + ' <button type="button" class="link-btn" id="mon-link">Email me a sign-in link</button>';
+          $('#mon-link').addEventListener('click', function () { requestLink(f.email.value, msg); });
+        } else msg.textContent = r.error || 'Something went wrong. Please try again.';
+      });
+    });
+  }
+  function viewWelcomeMonitor(q) {
+    formPage('#0e1a3d', '<a href="#home">Home</a> / Live Monitor', 'Starting your subscription…', 'Confirming with Stripe.', '<p class="muted" id="wm-msg">One moment…</p>');
+    if (!q.session_id) { $('#wm-msg').textContent = 'No subscription was found in this link.'; return; }
+    api('claim', { body: { session_id: q.session_id } }).then(function (r) {
+      if (r.status !== 200 || !r.token) {
+        $('.page-head h1').textContent = 'We couldn’t confirm your subscription yet';
+        $('#wm-msg').innerHTML = esc(r.error || 'Please try again in a moment.') + ' If you were charged, use <a href="#signin">Sign in</a> with your email, or contact <a href="mailto:support@cshealthed.com">support@cshealthed.com</a>.';
+        return;
+      }
+      signIn(r.token, function () {
+        history.replaceState(null, '', '#welcome-monitor');
+        var first = (r.name || '').split(' ')[0], m = account.student && account.student.monitor;
+        $('.page-head h1').textContent = 'The Live Monitor is unlocked' + (first ? ', ' + first : '') + '!';
+        $('.page-head p').textContent = 'Thank you. All 300 strips are open' + (m && m.until ? '; your subscription renews on ' + niceDate(m.until) : '') + '. A receipt is on its way to ' + r.email + '.';
+        $('#wm-msg').outerHTML = '<p>Manage or cancel your subscription any time from the Live Monitor page. To use it on another device, choose <b>Sign in</b> there and we’ll email you a link.</p>' +
+          '<div class="hero-cta"><a class="btn btn-primary" href="#monitor">Start the Live Monitor →</a></div>';
+      });
+    });
   }
   function viewMonitorStrip(catId, num) {
     var c = monCat(catId);
@@ -1720,11 +1833,16 @@
     var n = num ? Math.max(1, Math.min(c.strips.length, num)) : 0;
     if (!n) { for (var k = 0; k < c.strips.length; k++) if (d[c.strips[k].id] == null) { n = k + 1; break; } if (!n) n = 1; }
     var strip = c.strips[n - 1], crumbs = '<a href="#home">Home</a> / <a href="#monitor">Live Monitor</a> / ' + esc(c.title);
-    if (!paid() && (c.id === 'mixed' || n > MON_FREE)) {
+    if (!monitorOn() && (c.id === 'mixed' || n > MON_FREE || strip.locked)) {
       main.innerHTML = pageHead(color, crumbs, esc(c.title), 'Strip ' + n + ' of ' + c.strips.length) +
-        '<section class="section"><div class="wrap"><div class="panel" style="text-align:center"><h3 style="justify-content:center">' + lockIcon() + ' Part of the full course</h3>' +
-        '<p class="muted">The first ' + MON_FREE + ' strips in each category are free. Enroll for all 300 live strips, the full course, the final exam and your certificate.</p>' +
-        '<div class="hero-cta" style="justify-content:center">' + enrollCta() + '<a class="btn btn-ghost" href="#monitor">Back to the Live Monitor</a></div></div></div></section>';
+        '<section class="section"><div class="wrap"><div class="panel" style="text-align:center"><h3 style="justify-content:center">' + lockIcon() + ' Live Monitor subscription</h3>' +
+        '<p class="muted">The first ' + MON_FREE + ' strips in each category are free. Subscribe for all 300 live strips: ' + MON_PRICE + '/month, cancel anytime. The Live Monitor is separate from the course.</p>' +
+        '<div class="hero-cta" style="justify-content:center">' + monCta() + (account.token ? '' : '<a class="btn btn-ghost" href="#signin">Sign in</a>') + '<a class="btn btn-ghost" href="#monitor">Back to the Live Monitor</a></div></div></div></section>';
+      return;
+    }
+    if (strip.locked) { // subscribed, but the full set hasn't arrived yet
+      main.innerHTML = '<section class="section"><div class="wrap"><div class="panel" style="text-align:center"><p class="muted">Loading your strips…</p></div></div></section>';
+      loadMonitorBank().then(function () { if (location.hash === '#monitor-' + catId + (num ? '-' + num : '')) route(); });
       return;
     }
     var st = monStats(c);
@@ -1811,6 +1929,7 @@
       '<section class="section"><div class="wrap"><div class="panel terms">' +
       '<h2>Your purchase</h2><p>Enrollment is a one-time payment of ' + PRICE + ' (USD) for <b>one year of access</b> to the full course, starting the day you enroll: all ' + UNITS.length + ' units, the final exam and a certificate of completion. When the year ends you can renew for another year at the current price; renewing early adds the year to your end date. Your certificate stays on record and verifiable after your access ends. Payments are processed securely by Stripe; CSHealthED never sees or stores your card details.</p>' +
       '<h2>Refunds</h2><p>If the course isn’t right for you, email ' + mail + ' within <b>14 days</b> of purchase for a full refund, as long as a certificate has not been issued. Refunds go back to the original payment method, and course access ends when the refund is made. Unit 1 is free, so you can try the course before you buy.</p>' +
+      '<h2>Live Monitor subscription</h2><p>The Live Monitor is a separate monthly subscription (' + MON_PRICE + ' per month, USD), billed by Stripe on the same day each month until you cancel. Cancel any time with <b>Manage subscription</b> on the Live Monitor page; you keep access until the end of the month you have paid for, and you won’t be charged again. The 14-day course refund above applies to the course purchase, not to the subscription; for billing questions email ' + mail + '.</p>' +
       '<h2>Your access</h2><p>Your enrollment is for you alone. Please don’t share your sign-in links or course content. You can use the course on any of your own devices by signing in with your email. Lesson progress is saved in each browser; your enrollment and certificate are kept on our server.</p>' +
       '<h2>Certificate</h2><p>The certificate records that you completed this course and passed its final exam (' + PASS + '% or higher). It is an educational course record, not a license, certification or clinical credential. Check with your program, employer or agency whether it counts toward your requirements. Anyone with your certificate ID can confirm it on our <a href="#verify">verification page</a>, which shows your name, score and completion date.</p>' +
       '<h2>Educational use only</h2><p>ECG strips in this course are computer-generated simulations for training. Clinical content is general guidance and does not replace your protocols, medical direction, or professional judgment.</p>' +
@@ -1930,6 +2049,8 @@
     else if (h === 'verify') { viewVerify(q); nav = 'verify'; }
     else if (h === 'terms') { viewTerms(); nav = 'terms'; }
     else if (h === 'monitor') { viewMonitorHome(); nav = 'monitor'; }
+    else if (h === 'monitor-subscribe') { viewMonitorSubscribe(); nav = 'monitor'; }
+    else if (h === 'welcome-monitor') { viewWelcomeMonitor(q); nav = 'monitor'; }
     else if (/^monitor-[a-z]+(-\d+)?$/.test(h)) { var mm = /^monitor-([a-z]+)(?:-(\d+))?$/.exec(h); viewMonitorStrip(mm[1], mm[2] ? +mm[2] : 0); nav = 'monitor'; }
     else if (cm) {
       viewCourseRoute(cm[1], cm[2]);
@@ -1984,16 +2105,18 @@
   // Enrolled on this device: start from the cached full course, then refresh it.
   if (account.token) {
     try { applyFullCourse(JSON.parse(lsGet(CONTENT_KEY) || 'null')); } catch (e) { /* no cache */ }
+    try { applyMonitorBank(JSON.parse(lsGet(MON_BANK_KEY) || 'null')); } catch (e) { /* no cache */ }
   }
   syncAccountUi();
   route();
   if (account.token) {
-    var wasPaid = paid(), wasVersion = CRS.version;
-    loadFullCourse().then(function () {
+    var wasPaid = paid(), wasMon = monitorOn(), wasVersion = CRS.version;
+    refreshAccount().then(function () {
       var h = location.hash;
       if (/^#(welcome|signin)/.test(h)) return;
       // Re-render only if access or content changed (don't interrupt a quiz in progress needlessly).
-      if (paid() !== wasPaid || CRS.version !== wasVersion) route();
+      // (the Live Monitor home also shows the subscription's dates, so refresh it too)
+      if (paid() !== wasPaid || monitorOn() !== wasMon || CRS.version !== wasVersion || h === '#monitor') route();
     });
   }
 })();

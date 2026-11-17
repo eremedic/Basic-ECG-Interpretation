@@ -12,7 +12,7 @@ recorded in Supabase.
 | `site/` | The static course site (landing page, enrollment, the course, certificate, certificate verification). |
 | `src/course.js` | The full course content. **Not published as-is.** |
 | `scripts/build.mjs` | Builds `site/js/course-preview.js` (Unit 1 only; other units show titles) and `netlify/data/course-full.json` (everything, bundled into the server function). |
-| `site/js/monitor.js`, `scripts/build-monitor-strips.mjs` | The **Live Monitor** (`/#monitor`): the cardiac monitor from the Cardiac Lab defib trainer, playing 300 strips (50 each: sinus, atrial, junctional, ventricular, AV blocks, paced) for students to name. The build script creates the strip bank (`site/js/monitor-strips.js`) from the ECG engine; the first 5 strips in each category are free. |
+| `site/js/monitor.js`, `scripts/build-monitor-strips.mjs` | The **Live Monitor** (`/#monitor`), a separate **$14.99/month Stripe subscription**: the cardiac monitor from the Cardiac Lab defib trainer, playing 300 strips (50 each: sinus, atrial, junctional, ventricular, AV blocks, paced) for students to name. The first 5 strips in each category are free. The build writes the free strips to `site/js/monitor-strips.js` and the full bank to `netlify/data/monitor-full.json`, which the `monitor-bank` function serves only to active subscribers. |
 | `netlify/functions/` | Server API at `/api/*`: `create-checkout`, `stripe-webhook`, `claim`, `request-link`, `course-content`, `certificate`, `verify-certificate`. |
 | `supabase/migrations/0001_ecg_course_students.sql` | The `ecg_course_students` table. |
 
@@ -47,6 +47,8 @@ Row-level security is on, with no policies. Only the site's server functions (us
 
 Then run `supabase/migrations/0002_one_year_access.sql`, which adds `access_expires_at`. Each payment gives **one year of access**. Students can renew in the last 30 days or after their access ends; renewing early adds a year to the current end date. Certificates stay verifiable after access ends.
 
+Then run `supabase/migrations/0003_live_monitor_subscription.sql`, which adds the Live Monitor subscription columns (`monitor_status`, `monitor_subscription_id`, `monitor_current_period_end`, `monitor_cancel_at_period_end`, `monitor_started_at`). A row can be a course student, a Live Monitor subscriber, or both.
+
 ### 2. Netlify
 
 Create a new site from this repository. The build settings come from `netlify.toml`. Then add these environment variables under **Site configuration → Environment variables**:
@@ -63,6 +65,8 @@ Create a new site from this repository. The build settings come from `netlify.to
 | `EMAIL_FROM` *(optional)* | Defaults to `CSHealthED <no-reply@cshealthed.com>` |
 | `STRIPE_PRICE_ID` *(optional)* | A Stripe Price to charge. Without it, checkout charges $49.00 USD. |
 | `COURSE_PRICE_CENTS` *(optional)* | Changes the built-in price, e.g. `4900`. |
+| `STRIPE_MONITOR_PRICE_ID` *(optional)* | A recurring monthly Stripe Price for the Live Monitor. Without it, checkout charges $14.99 USD per month. |
+| `MONITOR_PRICE_CENTS` *(optional)* | Changes the built-in Live Monitor price, e.g. `1499`. (The price shown on the site is `MON_PRICE` in `site/js/app.js`.) |
 | `STRIPE_REQUIRE_TERMS` *(optional)* | `true` adds a required “I agree to the Terms and Refund Policy” checkbox on the payment page. First set a Terms of Service URL (`https://YOUR-SITE/#terms`) in Stripe → Settings → Business → Public details, or checkout will fail. |
 
 Redeploy after you add the variables.
@@ -72,9 +76,13 @@ Redeploy after you add the variables.
 In Stripe, go to **Developers → Webhooks → Add endpoint** and set it up:
 
 - **URL:** `https://YOUR-SITE/api/stripe-webhook`
-- **Events:** `checkout.session.completed` and `checkout.session.async_payment_succeeded`
+- **Events:** `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted` (the last three keep Live Monitor subscriptions current through renewals, failed payments and cancellations)
 
 Copy the endpoint's signing secret into `STRIPE_WEBHOOK_SECRET`, then redeploy.
+
+### Live Monitor: customer portal
+
+Subscribers cancel or update their card with **Manage subscription** on the Live Monitor page, which opens Stripe's customer portal. Turn it on once in each mode (sandbox and live): Stripe → **Settings → Billing → Customer portal**, allow customers to cancel subscriptions and update payment methods, then **Save**.
 
 ### 4. Brand the payment page
 

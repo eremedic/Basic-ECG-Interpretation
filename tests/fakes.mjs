@@ -53,6 +53,28 @@ export function fakeStripe() {
 				}
 			}
 		},
+		subs: new Map(),
+		subscriptions: {
+			async retrieve(id) {
+				const st = this._parent;
+				if (!st.subs.has(id)) throw new Error('No such subscription');
+				return st.subs.get(id);
+			}
+		},
+		portals: [],
+		billingPortal: {
+			sessions: {
+				async create(p) { this._parent.portals.push(p); return { url: 'https://billing.stripe.test/p/' + p.customer }; }
+			}
+		},
+		/** Complete a subscription Checkout session, as Stripe would. Returns the subscription. */
+		subscribe(id, { status = 'active', days = 30 } = {}) {
+			const s = sessions.get(id);
+			const sub = { id: 'sub_' + Math.random().toString(36).slice(2, 10), status, customer: s.customer || 'cus_456', cancel_at_period_end: false, current_period_end: Math.floor(Date.now() / 1000) + days * 86400, metadata: { ...(s.subscription_data?.metadata || {}) } };
+			this.subs.set(sub.id, sub);
+			Object.assign(s, { status: 'complete', payment_status: 'paid', subscription: sub.id, customer: sub.customer, customer_details: { email: s.customer_email || s.subscription_data?.metadata?.email, name: 'Card Name' } });
+			return sub;
+		},
 		webhooks: {
 			constructEvent(raw, sig, secret) {
 				if (sig !== `good:${secret}`) throw new Error('bad signature');
@@ -71,6 +93,8 @@ export function fakeStripe() {
 export function fakeDeps(over = {}) {
 	const stripe = fakeStripe();
 	stripe.checkout.sessions._parent = stripe;
+	stripe.subscriptions._parent = stripe;
+	stripe.billingPortal.sessions._parent = stripe;
 	const sent = [];
 	return {
 		stripe,

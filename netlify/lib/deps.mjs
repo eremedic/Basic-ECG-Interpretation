@@ -63,6 +63,8 @@ export function getDeps() {
 		priceId: env.STRIPE_PRICE_ID || '',
 		priceCents: Number(env.COURSE_PRICE_CENTS) || 4900,
 		requireTerms: /^(1|true|yes)$/i.test(env.STRIPE_REQUIRE_TERMS || ''),
+		monitorPriceId: env.STRIPE_MONITOR_PRICE_ID || '',
+		monitorPriceCents: Number(env.MONITOR_PRICE_CENTS) || 1499,
 		emailFrom: env.EMAIL_FROM || 'CSHealthED <no-reply@cshealthed.com>',
 		sendEmail: async ({ to, subject, html, text }) => {
 			if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');

@@ -1060,3 +1060,5 @@ a.lesson-row:hover { border-color: var(--c); }
 .lm-title small{font:600 .9rem var(--font);color:var(--muted);margin-left:6px}
 .lm-page .dv{padding-top:14px}
 @media (max-width:760px){.lm-page .dv-keys{grid-template-columns:repeat(3,minmax(0,1fr))}.lm-page .dv-keys .krow{grid-template-columns:1fr}.lm-page .khint{display:none}.lm-page .dv .klab{font-size:9.5px}.lm-page .dv .key.charge{font-size:12px;min-height:40px}}
+.tick-list.dark { color: var(--ink); }
+.tick-list.dark li::before { color: var(--ok); }

@@ -4,6 +4,7 @@
 import { getDeps, missing } from '../lib/deps.mjs';
 import { bearer, json, safe } from '../lib/http.mjs';
 import { accessUntil, canRenew, findStudent, hasAccess } from '../lib/students.mjs';
+import { monitorView } from '../lib/monitor.mjs';
 import { verifyToken } from '../lib/tokens.mjs';
 import course from '../data/course-full.json' with { type: 'json' };
 
@@ -13,6 +14,8 @@ export function studentView(s) {
 		email: s.email,
 		accessUntil: accessUntil(s)?.toISOString() ?? null,
 		canRenew: canRenew(s),
+		course: { enrolled: !!s.paid_at, active: hasAccess(s), until: accessUntil(s)?.toISOString() ?? null },
+		monitor: monitorView(s),
 		certificate: s.certificate_id
 			? { id: s.certificate_id, name: s.certificate_name, score: s.certificate_score, issuedAt: s.certificate_issued_at }
 			: null
