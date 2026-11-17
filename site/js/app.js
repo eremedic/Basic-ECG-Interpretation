@@ -1581,7 +1581,7 @@
       faq('Who is this course for?', 'Paramedic and EMS students learning 3-lead rhythm interpretation, and anyone refreshing their ECG basics.') +
       faq('How long do I have access?', 'One full year from the day you enroll, on any device — sign in with the link we email you. Need more time? Renew for another year (renewing early adds the year to your end date). Your certificate stays verifiable after your access ends.') +
       faq('What do I need?', 'A modern web browser. Narration uses your browser’s built-in voice and works best in Chrome, Edge or Safari.') +
-      faq('What does the certificate show?', 'Your name, the course, your final exam score and the date, with a certificate ID anyone can verify on this site. It records completion of this course — check with your program or agency whether it counts toward your requirements.') +
+      faq('What does the certificate show?', 'Your name, the course, your final exam score and the date, with a certificate ID anyone can verify on this site. ' + CERT_DISCLAIMER_SHORT + ' Whether it counts toward any requirement is up to your program, employer or agency. <a href="#terms">Full disclaimer</a>') +
       faq('Can I try it first?', 'Yes — Unit 1, The Heart’s Electrical System, is free, including its quiz.') +
       faq('What is the Live Monitor?', 'A separate monthly subscription (' + MON_PRICE + '/month, cancel anytime): 300 live ECG rhythms to interpret on a cardiac monitor, with calipers and full feedback on every strip. The first 5 strips in each category are free to try. It is not included in the ' + PRICE + ' course. <a href="#monitor">See the Live Monitor →</a>') +
       faq('Can I get a refund?', 'Yes — email us within 14 days of purchase for a full refund, as long as a certificate hasn’t been issued. See the <a href="#terms">Terms &amp; Refund Policy</a>.') +
@@ -1620,6 +1620,11 @@
     return '<div class="faq-item"><button class="faq-q" aria-expanded="false">' + esc(q) + '<span aria-hidden="true">+</span></button><div class="faq-a"><p>' + a + '</p></div></div>';
   }
 
+  /* ---------- certificate disclaimer ---------- */
+  var CERT_DISCLAIMER_SHORT = 'The Certificate of Completion attests solely to completion of this course. It is not a license, certification, credential, accreditation or continuing education (CE) credit, and it does not attest to clinical competence.';
+  var CERT_DISCLAIMER = 'The Certificate of Completion issued for the Basic ECG Interpretation Self-Paced Course attests solely that the named individual completed the course content and achieved the stated score on the course’s final examination. It is not, and shall not be construed as, a license, certification, credential, accreditation or continuing education (CE) credit, nor as authorization to interpret electrocardiograms or to perform any clinical procedure, and it does not attest to the holder’s clinical competence or fitness to practice. CSHealthED is not a licensing, certifying or accrediting body. Acceptance of the certificate for any purpose is at the sole discretion of the receiving educational program, employer, agency or licensing authority. Clinical practice remains governed by applicable law, scope-of-practice regulations, local protocols and medical direction.';
+  function certDisclaimerHtml() { return '<div class="cert-disclaimer"><b>Certificate of Completion: disclaimer.</b> ' + CERT_DISCLAIMER + '</div>'; }
+
   /* ---------- purchase menu: the course or the lab ---------- */
   function viewPurchase() {
     var lessons = UNITS.reduce(function (a, u) { return a + u.lessons.length; }, 0), m = account.student && account.student.monitor;
@@ -1627,12 +1632,13 @@
       return '<div class="buy-card" style="--c:' + o.color + '">' + (o.img || '') + '<div class="buy-kicker">' + o.kicker + '</div><h2>' + o.title + '</h2>' +
         '<div class="buy-price"><b>' + o.price + '</b><span>' + o.per + '</span></div>' +
         '<ul class="tick-list dark">' + o.items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
-        '<div class="buy-cta">' + o.cta + '</div>' + (o.note ? '<p class="hint" style="margin:10px 0 0">' + o.note + '</p>' : '') + '</div>';
+        '<div class="buy-cta">' + o.cta + '</div>' + (o.note ? '<p class="hint" style="margin:10px 0 0">' + o.note + '</p>' : '') +
+        (o.legal ? '<p class="buy-legal">' + o.legal + '</p>' : '') + '</div>';
     }
     main.innerHTML = pageHead('#1b2a5b', '<a href="#home">Home</a> / Purchase', 'Purchase', 'Choose the course, the lab, or both. Secure checkout by Stripe.') +
       '<section class="section"><div class="wrap"><div class="buy-grid">' +
-      card({ color: '#e0262b', kicker: 'Course', title: 'Basic ECG Interpretation Self-Paced Course', price: PRICE + ' USD', per: 'one-time payment · 12 months of access',
-        items: ['All ' + UNITS.length + ' units and ' + lessons + ' narrated lessons', 'Knowledge checks, activities and patient scenarios', 'Unit quizzes and a final exam', 'A certificate of completion anyone can verify'],
+      card({ color: '#e0262b', kicker: 'Course', title: 'Basic ECG Interpretation Self-Paced Course', img: '<img class="buy-shot" src="assets/course-landing.webp" width="900" height="467" alt="The Basic ECG Interpretation course: narrated lessons with a live ECG monitor">', legal: '<b>Certificate disclaimer:</b> ' + CERT_DISCLAIMER_SHORT + ' <a href="#terms">Full disclaimer</a>', price: PRICE + ' USD', per: 'one-time payment · 12 months of access',
+        items: ['All ' + UNITS.length + ' units and ' + lessons + ' narrated lessons', 'Knowledge checks, activities and patient scenarios', 'Unit quizzes and a final exam', 'A certificate of completion anyone can verify*'],
         cta: paid() ? '<span class="badge">✓ You have the course</span> <a class="btn btn-ghost" href="#course">Go to the course →</a>' : '<a class="btn btn-primary" href="#enroll">Buy the course — ' + PRICE + '</a>',
         note: paid() ? '' : 'Unit 1 is free to try first. <a href="#course-electro">Start Unit 1 →</a>' }) +
       card({ color: '#0e1a3d', kicker: 'Live Monitor', title: 'Basic ECG Interpretation Lab', img: '<div class="buy-mon" id="buy-mon" role="img" aria-label="The Lab’s cardiac monitor running a live ECG"></div>', price: MON_PRICE + ' USD', per: 'per month · cancel anytime',
@@ -1667,7 +1673,7 @@
       '<label>Your name <small>(as it should appear on your certificate)</small><input name="name" type="text" maxlength="120" autocomplete="name" required></label>' +
       '<label>Email <small>(for your receipt and sign-in links)</small><input name="email" type="email" maxlength="254" autocomplete="email" required></label>' +
       '<button class="btn btn-primary" type="submit">Continue to secure payment — ' + PRICE + '</button>' +
-      '<p class="hint">You’ll pay on Stripe’s secure checkout page, then come straight back here with the full course unlocked. By enrolling you agree to the <a href="#terms">Terms of Use &amp; Refund Policy</a>.</p>' +
+      '<p class="hint">You’ll pay on Stripe’s secure checkout page, then come straight back here with the full course unlocked. By enrolling you agree to the <a href="#terms">Terms of Use &amp; Refund Policy</a>, including the certificate disclaimer: ' + CERT_DISCLAIMER_SHORT + '.</p>' +
       '<div class="form-msg" id="enroll-msg" role="alert"></div></form>');
     $('#enroll-form').addEventListener('submit', function (e) {
       e.preventDefault();
@@ -1962,7 +1968,7 @@
       '<h2>Refunds</h2><p>If the course isn’t right for you, email ' + mail + ' within <b>14 days</b> of purchase for a full refund, as long as a certificate has not been issued. Refunds go back to the original payment method, and course access ends when the refund is made. Unit 1 is free, so you can try the course before you buy.</p>' +
       '<h2>Live Monitor subscription</h2><p>The Live Monitor is a separate monthly subscription (' + MON_PRICE + ' per month, USD), billed by Stripe on the same day each month until you cancel. Cancel any time with <b>Manage subscription</b> on the Live Monitor page; you keep access until the end of the month you have paid for, and you won’t be charged again. The 14-day course refund above applies to the course purchase, not to the subscription; for billing questions email ' + mail + '.</p>' +
       '<h2>Your access</h2><p>Your enrollment is for you alone. Please don’t share your sign-in links or course content. You can use the course on any of your own devices by signing in with your email. Lesson progress is saved in each browser; your enrollment and certificate are kept on our server.</p>' +
-      '<h2>Certificate</h2><p>The certificate records that you completed this course and passed its final exam (' + PASS + '% or higher). It is an educational course record, not a license, certification or clinical credential. Check with your program, employer or agency whether it counts toward your requirements. Anyone with your certificate ID can confirm it on our <a href="#verify">verification page</a>, which shows your name, score and completion date.</p>' +
+      '<h2>Certificate of Completion: disclaimer</h2><p>' + CERT_DISCLAIMER + '</p><p>The certificate is issued when you pass the course’s final examination (' + PASS + '% or higher). Anyone with your certificate ID can confirm it on our <a href="#verify">verification page</a>, which shows your name, score and completion date.</p>' +
       '<h2>Educational use only</h2><p>ECG strips in this course are computer-generated simulations for training. Clinical content is general guidance and does not replace your protocols, medical direction, or professional judgment.</p>' +
       '<h2>Your information</h2><p>We keep your name, email address, payment record (amount, date and Stripe reference) and certificate details to provide the course and verify certificates. We use your email only for your receipt and sign-in links, and we don’t sell your information. To have your record removed, email ' + mail + '.</p>' +
       '<h2>Contact</h2><p>Questions about the course or your purchase: ' + mail + '.</p>' +
@@ -1978,8 +1984,8 @@
       var out = $('#verify-out'); out.innerHTML = '<p class="muted">Checking…</p>';
       api('verify-certificate?id=' + encodeURIComponent(id.trim())).then(function (r) {
         if (r.status === 200 && r.valid) {
-          out.innerHTML = '<div class="verify-card ok"><b>✓ Valid certificate</b><p><b>' + esc(r.name) + '</b> completed <b>' + esc(r.course) + '</b> on ' +
-            esc(new Date(r.issuedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })) + ' with a final exam score of ' + r.score + '%.</p></div>';
+          out.innerHTML = '<div class="verify-card ok"><b>✓ Valid Certificate of Completion</b><p><b>' + esc(r.name) + '</b> completed <b>' + esc(r.course) + '</b> on ' +
+            esc(new Date(r.issuedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })) + ' with a final exam score of ' + r.score + '%.</p><p class="hint" style="margin-top:8px">' + CERT_DISCLAIMER_SHORT + '</p></div>';
         } else out.innerHTML = '<div class="verify-card bad"><b>✗ Not found</b><p>' + esc(r.status === 0 ? r.error : 'No certificate matches this ID. Check it was copied exactly.') + '</p></div>';
       });
     }
@@ -1991,7 +1997,7 @@
   function viewCertificate() {
     if (!paid()) {
       formPage('#0e1a3d', '<a href="#course">Course</a> / Certificate', 'Certificate of Completion', 'Enroll in the full course to take the final exam and earn your certificate.',
-        '<p>Your certificate shows your name, your final exam score and the date, with an ID anyone can verify.</p>' + enrollCta() + ' <a class="btn btn-ghost" href="#signin">Sign in</a>');
+        '<p>Your certificate shows your name, your final exam score and the date, with an ID anyone can verify.</p>' + enrollCta() + ' <a class="btn btn-ghost" href="#signin">Sign in</a>' + certDisclaimerHtml());
       return;
     }
     if (!examPassed()) {
@@ -2012,11 +2018,12 @@
       '<div class="cert" id="cert"><div class="cert-inner">' +
       '<img src="assets/cshealthed-logo.webp" alt="CSHealthED" width="150" height="135">' +
       '<div class="cert-kicker">Certificate of Completion</div>' +
-      '<p class="cert-line">This certifies that</p><div class="cert-name" id="cert-name-out">' + esc(name || 'Your Name') + '</div>' +
+      '<p class="cert-line">This is to acknowledge that</p><div class="cert-name" id="cert-name-out">' + esc(name || 'Your Name') + '</div>' +
       '<p class="cert-line">has successfully completed the self-paced course</p><div class="cert-course">Basic ECG Interpretation</div>' +
       '<p class="cert-meta">' + UNITS.length + ' units · narrated lessons, knowledge checks, unit quizzes and practice ECGs<br>Final exam score: <b>' + ((cert && cert.score) || course.data.exam) + '%</b> · Completed ' + esc(date) + '</p>' +
-      '<div class="cert-foot"><span>CSHealthED · Healthcare Education Software</span><span>' + (cert ? 'Certificate ID ' + esc(cert.id) + ' · verify at ' + esc(verifyUrl) : 'Educational course record — not a clinical credential') + '</span></div>' +
-      '</div></div></div></section>';
+      '<div class="cert-foot"><span>CSHealthED · Healthcare Education Software</span><span>' + (cert ? 'Certificate ID ' + esc(cert.id) + ' · verify at ' + esc(verifyUrl) : 'Educational course record') + '</span></div>' +
+      '<p class="cert-fine">This certificate attests solely to completion of the course named above. It is not a license, certification, credential, accreditation or continuing education credit, and does not attest to clinical competence.</p>' +
+      '</div></div>' + certDisclaimerHtml().replace('cert-disclaimer', 'cert-disclaimer no-print') + '</div></section>';
     $('#cert-name').addEventListener('input', function () { $('#cert-name-out').textContent = this.value.trim() || 'Your Name'; });
     $('#cert-issue').addEventListener('click', function () {
       var n = $('#cert-name').value.trim(), msg = $('#cert-msg'), btn = this;
