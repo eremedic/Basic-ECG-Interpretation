@@ -1569,7 +1569,16 @@
       '</div></div><div style="text-align:right"><div class="mlabel">HR <span class="heart">♥</span></div><div class="hr"><span id="hr">--</span><small>bpm</small></div></div></div>' +
       '<div class="monitor-canvas-wrap"><canvas id="hero-mon"></canvas></div></div></div></div></section>' +
 
-      '<section class="section"><div class="wrap"><div class="section-head"><div><h2>How it works</h2><p>Everything runs in your browser — on a laptop, tablet or phone.</p></div></div>' +
+      // the practice Lab, sold separately
+      '<section class="section"><div class="wrap"><div class="lab-promo">' +
+      '<div><div class="lab-kicker">' + (monitorOn() ? 'You’re subscribed' : 'Sold separately · ' + MON_PRICE + '/month') + '</div><h2>Basic ECG Interpretation Lab</h2>' +
+      '<p>Practice on a live cardiac monitor. Watch real-time rhythms sweep across the screen, then name them, with full feedback on every strip.</p>' +
+      '<ul class="tick-list"><li>300 live rhythms: 50 each of sinus, atrial, junctional, ventricular, AV block and paced</li><li>Freeze, change leads, print strips and measure with calipers</li><li>Your score in every category, and a mixed review of all 300</li></ul>' +
+      '<div class="hero-cta">' + (monitorOn() ? '<a class="btn btn-primary" href="#monitor">Go to the Lab →</a>' : '<a class="btn btn-light" href="#monitor">Try the Lab free</a><a class="btn btn-primary" href="#purchase">Purchase</a>') + '</div>' +
+      (monitorOn() ? '' : '<p class="lab-note">The first 5 strips in each category are free. ' + MON_PRICE + '/month, cancel anytime. Not included in the course.</p>') + '</div>' +
+      '<div class="lab-mon" id="lab-mon" role="img" aria-label="The Lab’s cardiac monitor running a live ECG"></div></div></div></section>' +
+
+      '<section class="section" style="padding-top:0"><div class="wrap"><div class="section-head"><div><h2>How it works</h2><p>Everything runs in your browser — on a laptop, tablet or phone.</p></div></div>' +
       '<div class="steps">' +
       '<div class="step"><div class="n">1</div><h3>Listen and learn</h3><p>Every lesson is narrated, with the text highlighted as it’s read and live strips that change as each rhythm is explained.</p></div>' +
       '<div class="step"><div class="n">2</div><h3>Practice on live ECGs</h3><p>Matching, sorting, caliper measurements, rate drills, a guided five-step worksheet and patient scenarios — on freshly generated strips.</p></div>' +
@@ -1581,14 +1590,6 @@
         return '<div class="cur-unit" style="--c:' + u.color + '"><span class="unit-num">' + (i + 1) + '</span><div><h3>' + esc(u.title) + (i === 0 ? ' <span class="badge">Free</span>' : '') + '</h3><p>' + esc(u.summary) + '</p></div></div>';
       }).join('') + '</div></div></section>' +
 
-      // the practice Lab, sold separately
-      '<section class="section" style="padding-top:0"><div class="wrap"><div class="lab-promo">' +
-      '<div><div class="lab-kicker">' + (monitorOn() ? 'You’re subscribed' : 'Sold separately · ' + MON_PRICE + '/month') + '</div><h2>Basic ECG Interpretation Lab</h2>' +
-      '<p>Practice on a live cardiac monitor. Watch real-time rhythms sweep across the screen, then name them, with full feedback on every strip.</p>' +
-      '<ul class="tick-list"><li>300 live rhythms: 50 each of sinus, atrial, junctional, ventricular, AV block and paced</li><li>Freeze, change leads, print strips and measure with calipers</li><li>Your score in every category, and a mixed review of all 300</li></ul>' +
-      '<div class="hero-cta">' + (monitorOn() ? '<a class="btn btn-primary" href="#monitor">Go to the Lab →</a>' : '<a class="btn btn-light" href="#monitor">Try the Lab free</a><a class="btn btn-primary" href="#purchase">Purchase</a>') + '</div>' +
-      (monitorOn() ? '' : '<p class="lab-note">The first 5 strips in each category are free. ' + MON_PRICE + '/month, cancel anytime. Not included in the course.</p>') + '</div>' +
-      '<div class="lab-mon" id="lab-mon" role="img" aria-label="The Lab’s cardiac monitor running a live ECG"></div></div></div></section>' +
 
       (paid() ? '' :
       '<section class="section" style="padding-top:0"><div class="wrap"><div class="enroll-card"><div><h2>Enroll in the full course</h2>' +
