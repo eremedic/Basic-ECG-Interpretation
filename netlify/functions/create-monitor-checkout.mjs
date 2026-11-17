@@ -29,7 +29,7 @@ export async function handle(req, deps) {
 					unit_amount: deps.monitorPriceCents,
 					recurring: { interval: 'month' },
 					product_data: {
-						name: 'Live Monitor — monthly subscription',
+						name: 'Basic ECG Interpretation Lab — Live Monitor (monthly)',
 						description: '300 live ECG rhythms to interpret on a cardiac monitor. Cancel anytime.',
 						images: [`${deps.siteUrl}/assets/stripe-course.png`]
 					}

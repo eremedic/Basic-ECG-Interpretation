@@ -826,6 +826,8 @@ a.lesson-row:hover { border-color: var(--c); }
 /* ---------- enrollment, landing and account pages ---------- */
 .site-nav a.nav-cta { color: #fff; margin-left: 6px; padding: 8px 14px; }
 .site-nav a.nav-cta:not(.btn-primary) { background: var(--navy); }
+.site-nav a.nav-cta.btn-primary:hover { background: #c41d22; color: #fff; }
+.site-nav a.nav-cta:not(.btn-primary):hover { background: var(--navy); color: #fff; filter: brightness(1.15); }
 .price-tag { display: flex; align-items: baseline; gap: 10px; margin-top: 22px; color: #d5ddf0; }
 .price-tag b { font-family: var(--display); font-size: 2.4rem; color: #fff; line-height: 1; }
 .hero-signin { margin: 14px 0 0; color: #aab6d6; font-size: .92rem; }
@@ -1062,3 +1064,14 @@ a.lesson-row:hover { border-color: var(--c); }
 @media (max-width:760px){.lm-page .dv-keys{grid-template-columns:repeat(3,minmax(0,1fr))}.lm-page .dv-keys .krow{grid-template-columns:1fr}.lm-page .khint{display:none}.lm-page .dv .klab{font-size:9.5px}.lm-page .dv .key.charge{font-size:12px;min-height:40px}}
 .tick-list.dark { color: var(--ink); }
 .tick-list.dark li::before { color: var(--ok); }
+
+/* purchase menu */
+.buy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; max-width: 980px; margin: 0 auto; }
+.buy-card { background: var(--card); border: 1px solid var(--line); border-top: 5px solid var(--c); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; display: flex; flex-direction: column; }
+.buy-kicker { font-size: .74rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.buy-card h2 { margin: 4px 0 10px; font-size: 1.5rem; }
+.buy-price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.buy-price b { font: 900 2.2rem var(--display); color: var(--heading); }
+.buy-price span { color: var(--muted); font-size: .92rem; }
+.buy-card .tick-list { margin-bottom: 18px; flex: 1; }
+.buy-cta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
