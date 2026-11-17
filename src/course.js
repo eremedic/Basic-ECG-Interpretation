@@ -283,7 +283,7 @@
           ['p', 'Vertically, the standard calibration is <b>10 millimeters per millivolt</b>: a 1-millivolt signal is two large boxes tall. Most monitors print a small hash mark every 3 seconds at the top of the strip, so two marks span a 6-second strip.'],
           ['p', 'To convert boxes to time, multiply: <b>small boxes × 0.04</b> seconds, or <b>large boxes × 0.20</b> seconds. A PR interval that spans 4 small boxes is 4 × 0.04 = 0.16 seconds.'],
           ['drill', { title: 'Box conversion drill', kind: 'boxes' }],
-          ['strip', 'nsr', { caption: 'Turn on Calipers and drag across the strip: the tool shows the time in seconds and in small boxes.' }],
+          ['strip', 'nsr', { caption: 'Turn on Calipers and drag the needle points to the start and end of an interval: the readout shows the time in seconds, in small boxes and as a rate.' }],
           ['kc', { q: 'At 25 mm/s, how long is one large box?', o: ['0.20 s', '0.04 s', '0.10 s', '1 s'], a: 0, why: 'A large box is 5 small boxes × 0.04 s = 0.20 s.' }]
         ] },
         { id: 'waves', title: 'Waves, segments and intervals', min: 10, blocks: [

@@ -83,7 +83,7 @@
       }).join('') + '</div>' +
       '<div class="seg" role="group" aria-label="View"><button data-mode="paper" class="on">Paper strip</button><button data-mode="monitor">Live monitor</button></div>' +
       '<span class="spacer"></span>' +
-      '<button class="tool-btn" data-act="cal" title="Drag across the strip to measure">' + ICON.caliper + 'Calipers</button>' +
+      '<button class="tool-btn" data-act="cal" title="Calipers: measure intervals and rate">' + ICON.caliper + 'Calipers</button>' +
       '<button class="tool-btn" data-act="sound" title="QRS tone" hidden>' + ICON.sound + 'Tone</button>' +
       '<button class="tool-btn" data-act="new" title="Generate a new strip of this rhythm"' + (opts.hideNew ? ' hidden' : '') + '>' + ICON.refresh + 'New strip</button>' +
       '</div>' +
@@ -92,6 +92,7 @@
     var wrap = $('.strip-wrap', host), canvas = $('canvas', host), cap = $('.strip-caption', host), hrEl = $('.monitor-hr', host);
 
     calipers = ECGRender.attachCalipers(wrap, canvas, function () { return st.mode === 'paper' ? info : null; });
+    wrap.addEventListener('calipers:close', function () { st.cal = false; var cb = $('[data-act="cal"]', host); if (cb) cb.classList.remove('on'); });
 
     function leads() { return st.lead === 'All' ? ['I', 'II', 'III'] : [st.lead]; }
     function build() {
@@ -1732,10 +1733,7 @@
       '<h1 class="lm-title">' + esc(c.title) + ' <small>' + (c.unit ? 'Pairs with Unit ' + c.unit + ' · ' : '') + st.ans + ' answered' + (st.pct == null ? '' : ', ' + st.pct + '% correct') + '</small></h1></div>' +
       '<div class="lm-grid"><div><div id="lm-dev"></div><div id="lm-print"></div></div>' +
       '<aside class="panel lm-side"><div class="lm-top"><span></span><a class="link-btn" href="#monitor">All categories</a></div>' +
-      '<div class="lm-dots" aria-label="Strips in this set">' + c.strips.map(function (x, i) {
-        var v = d[x.id]; return '<a href="#monitor-' + c.id + '-' + (i + 1) + '" title="Strip ' + (i + 1) + '" aria-label="Strip ' + (i + 1) + '"><i class="' + (v == null ? '' : v ? 'ok' : 'bad') + (i + 1 === n ? ' cur' : '') + '"></i></a>';
-      }).join('') + '</div>' +
-      '<p class="lm-q" style="margin-top:14px">What is this rhythm?</p><p class="hint" style="margin:-6px 0 10px">Work through rate, rhythm, P waves, PR interval and QRS. Use FREEZE or PRINT STRIP to measure.</p>' +
+      '<p class="lm-q" style="margin-top:6px">What is this rhythm?</p><p class="hint" style="margin:-6px 0 10px">Work through rate, rhythm, P waves, PR interval and QRS. Use FREEZE or PRINT STRIP to measure.</p>' +
       '<div class="lm-opts" id="lm-opts"></div><div id="lm-fb"></div>' +
       '<div class="lm-top" style="margin:14px 0 0">' + (n > 1 ? '<a class="btn btn-ghost btn-sm" href="#monitor-' + c.id + '-' + (n - 1) + '">← Previous</a>' : '<span></span>') +
       (n < c.strips.length ? '<a class="btn btn-primary btn-sm" id="lm-next" href="#monitor-' + c.id + '-' + (n + 1) + '">Next strip →</a>' : '<a class="btn btn-primary btn-sm" href="#monitor">Finish set →</a>') + '</div>' +
@@ -1768,11 +1766,12 @@
       var box = $('#lm-print');
       box.innerHTML = '<div class="panel lm-print"><div class="lm-top"><b>Printed strip · Lead ' + esc(info.lead) + ' · 6 seconds</b><span>' +
         '<button class="tool-btn" data-p="cal">' + ICON.caliper + 'Calipers</button> <button class="tool-btn" data-p="close" aria-label="Close the printed strip">✕</button></span></div>' +
-        '<div class="strip-wrap"><canvas aria-label="Printed ECG strip" role="img"></canvas></div><p class="hint" style="margin:8px 0 0">Turn on Calipers, then drag across the strip to measure an interval.</p></div>';
+        '<div class="strip-wrap"><canvas aria-label="Printed ECG strip" role="img"></canvas></div><p class="hint" style="margin:8px 0 0">Turn on Calipers, then drag each needle point to the start and end of an interval (or drag the hinge to move both). Use March to check regularity.</p></div>';
       var wrap = $('.strip-wrap', box), canvas = $('canvas', box), sinfo = null;
       function draw() { sinfo = ECGRender.drawStrip(canvas, info.sig, { leads: [info.lead], mode: 'paper', start: info.start, seconds: 6, width: wrap.clientWidth || 700 }); }
       draw();
       var cal = ECGRender.attachCalipers(wrap, canvas, function () { return sinfo; });
+      wrap.addEventListener('calipers:close', function () { var cb = $('[data-p="cal"]', box); if (cb) cb.classList.remove('on'); });
       onResize(function () { if (box.contains(canvas)) { cal.clear(); draw(); } });
       box.addEventListener('click', function (e) {
         var b = e.target.closest('[data-p]'); if (!b) return;
@@ -1788,7 +1787,6 @@
       var ok = k === correct;
       if (d[strip.id] == null) { d[strip.id] = ok ? 1 : 0; course.save(); }
       markOptions($('#lm-opts'), correct, k);
-      var dot = $all('.lm-dots i')[n - 1]; if (dot) dot.className = (d[strip.id] ? 'ok' : 'bad') + ' cur';
       var C = R.criteria;
       var pr = strip.pr ? strip.pr + (strip.r === 'firstDeg' ? ': prolonged (over 0.20 s), constant' : ', constant') : C.pr;
       var qrs = strip.wide === 1 ? 'Wide (0.12 s or more)' : strip.wide === 0 ? 'Narrow (under 0.12 s)' : C.qrs;

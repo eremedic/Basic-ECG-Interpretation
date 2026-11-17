@@ -252,44 +252,132 @@
   };
 
   /* Calipers ------------------------------------------------------------ */
-  function attachCalipers(wrap, canvas, getInfo) {
-    var overlay = document.createElement('div');
-    overlay.className = 'caliper-layer';
-    wrap.appendChild(overlay);
-    var a = null, b = null, dragging = false;
+  // Realistic steel calipers, as in the CSHealthED Cardiac Lab: two tapered legs on a
+  // hinge with an adjustment knob, in a band that opens above the tracing, with the
+  // needle points at the top of the ECG and faint guide lines down through it.
+  // Drag a leg or the hinge, or focus one and use the arrow keys (one small box =
+  // 0.04 s; Shift = 0.01 s; Page Up/Down = one large box; Home/End; Escape closes).
+  // March repeats the interval across the strip. Positions are kept between strips.
+  //
+  // attachCalipers(wrap, canvas, getInfo): the calipers show while `wrap` has the
+  // class calipers-on and getInfo() returns the strip's drawing info. Closing them
+  // removes the class and fires a 'calipers:close' event on wrap.
+  var CAL = { a: 0.2, b: 0.2 + 800 / 6000, march: false }, CAL_SEQ = 0, CAL_BAND = 80, CAL_DIP = 30;
+  try { var sv = JSON.parse(localStorage.getItem('cshealthed-calipers') || 'null'); if (sv) { CAL.march = !!sv.march; if (sv.a >= 0 && sv.a <= 1) CAL.a = sv.a; if (sv.b >= 0 && sv.b <= 1) CAL.b = sv.b; } } catch (e) { /* storage blocked */ }
+  function calSave() { try { localStorage.setItem('cshealthed-calipers', JSON.stringify(CAL)); } catch (e) { /* ignore */ } }
+  var calHosts = [];
+  function calClamp(x) { return Math.max(0, Math.min(1, x)); }
+  function fmtS(ms) { return (ms / 1000).toFixed(2) + ' s'; }
+  function calUpdateAll() { calHosts = calHosts.filter(function (h) { return document.body.contains(h.wrap); }); calHosts.forEach(function (h) { h.update(); }); }
 
-    function px(e) {
-      var r = canvas.getBoundingClientRect();
-      return Math.max(0, Math.min(r.width, e.clientX - r.left));
+  function attachCalipers(wrap, canvas, getInfo) {
+    var ov = null, host = { wrap: wrap };
+    function ms() { var i = getInfo(); return i ? i.seconds * 1000 : 6000; }
+    function close() {
+      wrap.classList.remove('calipers-on');
+      wrap.dispatchEvent(new CustomEvent('calipers:close', { bubbles: true }));
     }
     function render() {
-      overlay.innerHTML = '';
-      if (a === null || b === null || Math.abs(b - a) < 3) return;
-      var info = getInfo();
-      if (!info) return;
-      var l = Math.min(a, b), r = Math.max(a, b);
-      var sec = (r - l) / info.pps;
-      var boxes = sec / 0.04;
-      var html = '<div class="cal-line" style="left:' + l + 'px"></div><div class="cal-line" style="left:' + r + 'px"></div>' +
-        '<div class="cal-bar" style="left:' + l + 'px;width:' + (r - l) + 'px"></div>' +
-        '<div class="cal-label" style="left:' + ((l + r) / 2) + 'px">' + sec.toFixed(2) + ' s · ' + boxes.toFixed(1) + ' small boxes' + (sec > 0.25 ? ' · ≈ ' + Math.round(60 / sec) + ' /min' : '') + '</div>';
-      overlay.innerHTML = html;
+      if (ov) { ov.remove(); ov = null; }
+      var on = wrap.classList.contains('calipers-on') && !!getInfo();
+      wrap.classList.toggle('cal-on', on);
+      if (!on) return;
+      ov = document.createElement('div'); ov.className = 'cal-ov';
+      var gid = 'calg' + (++CAL_SEQ);
+      ov.innerHTML = '<svg class="cal-svg" aria-hidden="true" focusable="false"><defs>' +
+        '<linearGradient id="' + gid + 'm" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7C8790"/><stop offset=".35" stop-color="#F4F7F9"/><stop offset=".6" stop-color="#C3CBD1"/><stop offset="1" stop-color="#6A757E"/></linearGradient>' +
+        '<radialGradient id="' + gid + 'h" cx=".35" cy=".35" r=".8"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".45" stop-color="#C9D1D7"/><stop offset="1" stop-color="#5E6972"/></radialGradient>' +
+        '<filter id="' + gid + 's" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="1.5" dy="2" stdDeviation="1.6" flood-color="#000" flood-opacity=".35"/></filter></defs>' +
+        '<g class="cal-guides"></g><g class="cal-ticks"></g><g class="cal-body" filter="url(#' + gid + 's)"></g></svg>' +
+        '<div class="cal-hinge" role="slider" tabindex="0" aria-label="Calipers hinge: move both legs"></div>' +
+        '<div class="cal-leg" data-k="a" role="slider" tabindex="0" aria-label="Caliper leg 1"><i></i></div>' +
+        '<div class="cal-leg" data-k="b" role="slider" tabindex="0" aria-label="Caliper leg 2"><i></i></div>' +
+        '<div class="cal-read"><output class="cal-val" aria-live="polite"></output>' +
+        '<button type="button" class="cal-march" title="March the interval across the strip">March</button>' +
+        '<button type="button" class="cal-x" aria-label="Close calipers" title="Close calipers">×</button></div>';
+      wrap.appendChild(ov);
+      ov.querySelector('.cal-x').onclick = close;
+      ov.querySelector('.cal-march').onclick = function () { CAL.march = !CAL.march; calSave(); calUpdateAll(); };
+      Array.prototype.forEach.call(ov.querySelectorAll('.cal-leg, .cal-hinge'), function (el) {
+        var k = el.getAttribute('data-k');
+        el.addEventListener('pointerdown', function (e) {
+          e.preventDefault(); el.setPointerCapture(e.pointerId); el.focus({ preventScroll: true });
+          var r = ov.getBoundingClientRect(), x0 = e.clientX, a0 = CAL.a, b0 = CAL.b;
+          var move = function (ev) {
+            if (k) CAL[k] = calClamp((ev.clientX - r.left) / r.width);
+            else { var d = (ev.clientX - x0) / r.width, lo = Math.min(a0, b0), hi = Math.max(a0, b0); d = Math.max(-lo, Math.min(1 - hi, d)); CAL.a = a0 + d; CAL.b = b0 + d; }
+            calUpdateAll();
+          };
+          var up = function () { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); calSave(); };
+          el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+        });
+        el.addEventListener('keydown', function (e) {
+          var M = ms(), step = (e.shiftKey ? 10 : 40) / M, d = 0;
+          if (e.key === 'ArrowRight' || e.key === 'ArrowUp') d = step; else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') d = -step;
+          else if (e.key === 'PageUp') d = 200 / M; else if (e.key === 'PageDown') d = -200 / M;
+          else if (e.key === 'Home' && k) { CAL[k] = 0; } else if (e.key === 'End' && k) { CAL[k] = 1; }
+          else if (e.key === 'Escape') { close(); return; }
+          else return;
+          e.preventDefault(); e.stopPropagation();
+          if (k) CAL[k] = calClamp(CAL[k] + d);
+          else { var lo = Math.min(CAL.a, CAL.b), hi = Math.max(CAL.a, CAL.b); d = Math.max(-lo, Math.min(1 - hi, d)); CAL.a += d; CAL.b += d; }
+          calSave(); calUpdateAll();
+        });
+      });
+      update();
     }
-    canvas.addEventListener('pointerdown', function (e) {
-      if (!wrap.classList.contains('calipers-on')) return;
-      dragging = true;
-      a = b = px(e);
-      canvas.setPointerCapture(e.pointerId);
-      render();
-    });
-    canvas.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
-      b = px(e);
-      render();
-    });
-    canvas.addEventListener('pointerup', function () { dragging = false; });
-    return { clear: function () { a = b = null; render(); } };
+    function update() {
+      if (!ov) return;
+      var M = ms(), lo = Math.min(CAL.a, CAL.b), hi = Math.max(CAL.a, CAL.b), d = (hi - lo) * M;
+      var legs = ov.querySelectorAll('.cal-leg');
+      [['a', legs[0]], ['b', legs[1]]].forEach(function (x) {
+        var v = CAL[x[0]] * M; x[1].style.left = (CAL[x[0]] * 100) + '%';
+        x[1].setAttribute('aria-valuemin', '0'); x[1].setAttribute('aria-valuemax', String(Math.round(M))); x[1].setAttribute('aria-valuenow', String(Math.round(v)));
+        x[1].setAttribute('aria-valuetext', 'at ' + fmtS(v) + '; interval ' + fmtS(d));
+      });
+      var W = ov.clientWidth || 720, Hh = ov.clientHeight || 170;
+      var hingeY = 48, tipY = CAL_BAND + CAL_DIP;  // hinge in the band above the ECG; the legs end in fine points at the top of the tracing
+      var xa = CAL.a * W, xb = CAL.b * W, hx = (xa + xb) / 2, gid = ov.querySelector('linearGradient').id.slice(0, -1);
+      var leg = function (tx) {
+        var dx = tx - hx, dy = tipY - hingeY, L = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+        var nl = Math.min(7, L * 0.12), px = tx - ux * nl, py = tipY - uy * nl, w0 = 3.4, w1 = 1.15;
+        var poly = [[hx + nx * w0, hingeY + ny * w0], [px + nx * w1, py + ny * w1], [px - nx * w1, py - ny * w1], [hx - nx * w0, hingeY - ny * w0]].map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+        return '<polygon points="' + poly + '" fill="url(#' + gid + 'm)" stroke="#3A434A" stroke-width=".6" stroke-linejoin="round"/>' +
+          '<line x1="' + px.toFixed(1) + '" y1="' + py.toFixed(1) + '" x2="' + tx.toFixed(1) + '" y2="' + tipY + '" stroke="#2B3238" stroke-width=".8" stroke-linecap="round"/>';
+      };
+      var body = leg(xa) + leg(xb) +
+        '<rect x="' + (hx - 6).toFixed(1) + '" y="' + (hingeY - 22) + '" width="12" height="13" rx="2.5" fill="url(#' + gid + 'm)" stroke="#3A434A" stroke-width=".8"/>' +
+        [-3, 0, 3].map(function (o) { return '<line x1="' + (hx + o).toFixed(1) + '" y1="' + (hingeY - 20) + '" x2="' + (hx + o).toFixed(1) + '" y2="' + (hingeY - 11) + '" stroke="#4A545B" stroke-width=".7"/>'; }).join('') +
+        '<circle cx="' + hx.toFixed(1) + '" cy="' + hingeY + '" r="9.5" fill="url(#' + gid + 'h)" stroke="#3A434A" stroke-width=".9"/>' +
+        '<circle cx="' + hx.toFixed(1) + '" cy="' + hingeY + '" r="3.6" fill="#59636B" stroke="#2B3238" stroke-width=".6"/>' +
+        '<line x1="' + (hx - 2.6).toFixed(1) + '" y1="' + (hingeY + 1.2) + '" x2="' + (hx + 2.6).toFixed(1) + '" y2="' + (hingeY - 1.2) + '" stroke="#D5DBDF" stroke-width=".9" stroke-linecap="round"/>';
+      var gd = function (x) { return '<line x1="' + x.toFixed(1) + '" y1="' + tipY + '" x2="' + x.toFixed(1) + '" y2="' + Hh + '"/><circle cx="' + x.toFixed(1) + '" cy="' + tipY + '" r="1.3"/>'; };
+      var svg = ov.querySelector('.cal-svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh);
+      ov.querySelector('.cal-body').innerHTML = body; ov.querySelector('.cal-guides').innerHTML = gd(xa) + gd(xb);
+      Array.prototype.forEach.call(legs, function (el) { el.style.top = (tipY - 28) + 'px'; el.querySelector('i').style.top = '19px'; });
+      var hinge = ov.querySelector('.cal-hinge'); hinge.style.left = (hx / W * 100) + '%'; hinge.style.top = (hingeY - 24) + 'px';
+      hinge.setAttribute('aria-valuemin', '0'); hinge.setAttribute('aria-valuemax', String(Math.round(M))); hinge.setAttribute('aria-valuenow', String(Math.round(lo * M)));
+      hinge.setAttribute('aria-valuetext', 'interval ' + fmtS(d) + ' starting at ' + fmtS(lo * M));
+      var boxes = d / 40, rate = d >= 200 ? Math.round(60000 / d) : null, narrow = W < 480;
+      var txt = fmtS(d) + (narrow ? '' : ' · ' + (Math.round(boxes * 10) / 10) + ' small boxes') + (rate ? ' · ' + rate + '/min' : '');
+      var out = ov.querySelector('.cal-val'); if (out.textContent !== txt) out.textContent = txt;
+      if (narrow) out.setAttribute('aria-label', fmtS(d) + ', ' + (Math.round(boxes * 10) / 10) + ' small boxes' + (rate ? ', ' + rate + ' per minute' : ''));
+      var rd = ov.querySelector('.cal-read'), rw = rd.offsetWidth || 300, cx = (lo + hi) / 2 * W;
+      rd.style.left = (rw >= W - 4 ? W / 2 : Math.max(rw / 2 + 2, Math.min(W - rw / 2 - 2, cx))) + 'px';  // keep the readout inside the strip
+      var mb = ov.querySelector('.cal-march'); mb.setAttribute('aria-pressed', CAL.march ? 'true' : 'false'); mb.classList.toggle('on', CAL.march);
+      var tk = ov.querySelector('.cal-ticks'), h = '', tick = function (f) { var x = (f * W).toFixed(1); return '<line x1="' + x + '" y1="' + tipY + '" x2="' + x + '" y2="' + Hh + '"/><path d="M' + x + ' ' + tipY + 'l-4 -8h8z"/>'; };
+      if (CAL.march && hi - lo > 0.004) { var w = hi - lo; for (var x = lo - w; x > -0.0001; x -= w) h += tick(x); for (var y = hi + w; y < 1.0001; y += w) h += tick(y); }
+      if (tk.innerHTML !== h) tk.innerHTML = h;
+    }
+    host.update = update;
+    calHosts.push(host);
+    // follow the calipers-on class that the page's Calipers button toggles
+    new MutationObserver(function () { var want = wrap.classList.contains('calipers-on') && !!getInfo(); if (want !== !!ov) render(); }).observe(wrap, { attributes: true, attributeFilter: ['class'] });
+    render();
+    function sync() { var want = wrap.classList.contains('calipers-on') && !!getInfo(); if (want !== !!ov) render(); else update(); }
+    return { clear: sync, update: sync };
   }
+  global.addEventListener('resize', function () { calUpdateAll(); });
 
   global.ECGRender = { isDark: isDark, paper: paper, drawStrip: drawStrip, Monitor: Monitor, attachCalipers: attachCalipers, MM_PER_S: MM_PER_S };
 })(window);
