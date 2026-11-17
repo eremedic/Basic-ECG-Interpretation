@@ -1076,27 +1076,31 @@ a.lesson-row:hover { border-color: var(--c); }
 .buy-card .tick-list { margin-bottom: 18px; flex: 1; align-content: start; }
 .buy-cta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 /* the small live monitor on the Purchase page */
-.buy-mon { max-width: 380px; width: 100%; margin: 0 auto 16px; }
+.buy-mon { max-width: 270px; width: 100%; margin: 0 auto 12px; }
 .dv-mini { padding-top: 10px; }
-.dv-mini .dv-handle { height: 18px; border-width: 6px; }
-.dv-mini .dv-face { border-radius: 18px; padding: 8px 9px 8px; }
-.dv-mini .dv-brand { margin: 0 2px 6px; font-size: 10px; }
-.dv-mini .dv-brand b { font-size: 11px; }
+.dv-mini .dv-handle { height: 14px; border-width: 5px; }
+.dv-mini .dv-face { border-radius: 14px; padding: 6px 7px 6px; }
+.dv-mini .dv-brand { margin: 0 2px 4px; font-size: 8px; gap: 6px; }
+.dv-mini .dv-logo { width: 10px; height: 10px; }
+.dv-mini .dv-brand b { font-size: 9px; }
 .dv-mini .dv-brand > span:not(.dv-logo) { display: none; }
 .dv-mini .dv-main { grid-template-columns: minmax(0, 1fr); }
-.dv-mini .dv-screen { min-height: 200px; border-width: 4px; }
-.dv-mini .sc-top { font-size: 9px; padding: 3px 7px; }
-.dv-mini .sc-body { grid-template-columns: minmax(0, 1fr) 78px; }
+.dv-mini .dv-screen { min-height: 140px; border-width: 3px; border-radius: 8px; }
+.dv-mini .sc-top { font-size: 7px; padding: 2px 6px; gap: 6px; }
+.dv-mini .sc-batt { width: 14px; height: 7px; }
+.dv-mini .sc-body { grid-template-columns: minmax(0, 1fr) 58px; }
 .dv-mini .sc-n { padding: 2px 6px; }
-.dv-mini .sc-n small, .dv-mini .sc-n em { font-size: 8px; }
-.dv-mini .sc-n b { font-size: 15px; }
-.dv-mini .sc-n.hr b { font-size: 28px; }
-.dv-mini .sc-n.bp b { font-size: 12px; }
-.dv-mini .sc-wl { font-size: 9px; }
-.dv-mini .sc-msg { font-size: 10px; padding: 4px 8px; min-height: 0; }
-.dv-mini .dv-grill { margin-top: 7px; height: 5px; }
+.dv-mini .sc-n small, .dv-mini .sc-n em { font-size: 6.5px; }
+.dv-mini .sc-n { padding: 1px 4px; }
+.dv-mini .sc-wave { min-height: 34px; }
+.dv-mini .sc-n b { font-size: 11px; }
+.dv-mini .sc-n.hr b { font-size: 20px; }
+.dv-mini .sc-n.bp b { font-size: 9px; }
+.dv-mini .sc-wl { font-size: 7px; top: 2px; left: 5px; }
+.dv-mini .sc-msg { font-size: 7.5px; padding: 3px 6px; min-height: 0; }
+.dv-mini .dv-grill { margin-top: 5px; height: 4px; }
 /* course tile screenshot and certificate disclaimer */
-.buy-shot { display: block; width: 100%; max-width: 380px; height: auto; margin: 0 auto 16px; border-radius: 12px; box-shadow: 0 10px 24px -12px rgba(15,23,42,.45); }
+.buy-shot { display: block; width: 100%; max-width: 270px; height: auto; margin: 0 auto 12px; border-radius: 12px; box-shadow: 0 10px 24px -12px rgba(15,23,42,.45); }
 .buy-legal { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: .76rem; line-height: 1.5; color: var(--muted); }
 .cert-disclaimer { max-width: 860px; margin: 18px auto 0; padding: 14px 16px; border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 10px; background: var(--card); font-size: .82rem; line-height: 1.6; color: var(--muted); }
 .cert-disclaimer b { color: var(--heading); }
