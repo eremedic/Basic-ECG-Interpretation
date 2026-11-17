@@ -51,7 +51,8 @@ export async function recordMonitor(db, { email, name, customer, sub }) {
 	const existing = await findStudent(db, email);
 	if (existing) {
 		const update = { ...fields };
-		if (!existing.stripe_customer_id && customer) update.stripe_customer_id = customer;
+		// the subscription's customer is the one Stripe knows in this mode: keep it
+		if (customer && existing.stripe_customer_id !== customer) update.stripe_customer_id = customer;
 		if (!existing.name && name) update.name = name;
 		if (!existing.monitor_started_at) update.monitor_started_at = new Date().toISOString();
 		const { data, error } = await db.from(TABLE).update(update).eq('email', email).select().single();

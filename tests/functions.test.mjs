@@ -380,3 +380,18 @@ test('Live Monitor: billing portal for subscribers only', async () => {
 	assert.equal(deps.stripe.portals[0].return_url, 'https://course.example.com/#monitor');
 	assert.equal((await me(get('/api/me'), deps)).status, 401);
 });
+
+
+test('Live Monitor: a stale saved customer (other mode) does not break checkout or the portal', async () => {
+	const deps = fakeDeps();
+	const realCreate = deps.stripe.checkout.sessions.create.bind(deps.stripe.checkout.sessions);
+	deps.stripe.checkout.sessions.create = async (p) => { if (p.customer === 'cus_live_old') { const e = new Error("No such customer: 'cus_live_old'"); e.code = 'resource_missing'; throw e; } return realCreate(p); };
+	deps.db.rows.push({ id: 'x1', email: 'sam@example.com', name: 'Sam', stripe_customer_id: 'cus_live_old' });
+	const { token, sub } = await subscribeMonitor(deps, 'Sam', 'sam@example.com');
+	assert.equal(deps.stripe.created[0].customer_email, 'sam@example.com', 'fell back to the email');
+	assert.equal(deps.db.rows[0].stripe_customer_id, sub.customer, 'row now has the subscription customer');
+	deps.db.rows[0].stripe_customer_id = 'cus_live_old'; // even if it is stale again…
+	const [st] = await body(await monitorPortal(post('/api/monitor-portal', {}, { authorization: `Bearer ${token}` }), deps));
+	assert.equal(st, 200);
+	assert.equal(deps.stripe.portals[0].customer, sub.customer, '…the portal uses the subscription customer');
+});

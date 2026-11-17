@@ -37,10 +37,9 @@ export async function handle(req, deps) {
 				quantity: 1
 			};
 	const meta = { product: MONITOR_PRODUCT, student_name: name, email };
-	const session = await deps.stripe.checkout.sessions.create({
+	const params = (who) => ({
 		mode: 'subscription',
-		// reuse the student's Stripe customer (from the course purchase) when there is one
-		...(existing?.stripe_customer_id ? { customer: existing.stripe_customer_id } : { customer_email: email }),
+		...who,
 		line_items: [lineItem],
 		allow_promotion_codes: true,
 		metadata: meta,
@@ -51,6 +50,17 @@ export async function handle(req, deps) {
 		success_url: `${deps.siteUrl}/#welcome-monitor?session_id={CHECKOUT_SESSION_ID}`,
 		cancel_url: `${deps.siteUrl}/#monitor`
 	});
+	let session;
+	if (existing?.stripe_customer_id) {
+		// reuse the student's Stripe customer (from the course purchase)…
+		try {
+			session = await deps.stripe.checkout.sessions.create(params({ customer: existing.stripe_customer_id }));
+		} catch (e) {
+			// …unless Stripe doesn't know it (saved in another mode or account): use the email instead
+			if (!(e?.code === 'resource_missing' || /No such customer/i.test(e?.message || ''))) throw e;
+		}
+	}
+	if (!session) session = await deps.stripe.checkout.sessions.create(params({ customer_email: email }));
 	return json(200, { url: session.url });
 }
 
