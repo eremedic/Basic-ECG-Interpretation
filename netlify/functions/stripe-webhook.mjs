@@ -9,6 +9,7 @@
 import { getDeps } from '../lib/deps.mjs';
 import { json, safe } from '../lib/http.mjs';
 import { recordPayment } from '../lib/students.mjs';
+import { groupComplete, recordGroupPurchase } from '../lib/groups.mjs';
 import { MONITOR_PRODUCT, monitorSessionComplete, recordMonitorCheckout, updateMonitorSubscription } from '../lib/monitor.mjs';
 
 export async function handle(req, deps) {
@@ -25,6 +26,7 @@ export async function handle(req, deps) {
 		const s = event.data.object;
 		if (s.metadata?.product === 'ecg-basic-course' && s.payment_status === 'paid') await recordPayment(deps.db, s);
 		if (monitorSessionComplete(s)) await recordMonitorCheckout(deps.stripe, deps.db, s);
+		if (groupComplete(s)) await recordGroupPurchase(deps.db, s);
 	}
 	if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
 		const sub = event.data.object;

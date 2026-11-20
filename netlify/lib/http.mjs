@@ -52,6 +52,8 @@ export function explainError(err) {
 		return { code: 'stripe_timeout', error: 'Payment setup problem: Stripe didn’t answer in time. Please try again in a moment.' };
 	if (type.startsWith('Stripe'))
 		return { code: 'stripe', error: 'Payment setup problem (Stripe): ' + msg };
+	if (/ecg_course_group|group_id|group_joined_at|is_instructor/.test(msg))
+		return { code: 'db_migration', error: 'Database setup problem: the group seat tables are missing. Run supabase/migrations/0005_group_seats.sql in the Supabase SQL Editor.' };
 	if (/password_(hash|set_at|failed_count|locked_until)/.test(msg))
 		return { code: 'db_migration', error: 'Database setup problem: the password columns are missing. Run supabase/migrations/0004_passwords.sql in the Supabase SQL Editor.' };
 	if (/monitor_(status|subscription_id|current_period_end|cancel_at_period_end|started_at)/.test(msg))
@@ -66,7 +68,7 @@ export function explainError(err) {
 		return { code: 'db_timeout', error: 'Database setup problem: Supabase didn’t answer in time. Check SUPABASE_URL, and that the Supabase project isn’t paused (Supabase pauses free projects after a week without use).' };
 	if (/fetch failed|ENOTFOUND|getaddrinfo|Invalid URL|invalid url|Invalid supabaseUrl|supabaseUrl is required|Invalid path specified/i.test(msg))
 		return { code: 'db_url', error: 'Database setup problem: couldn’t reach Supabase. Check SUPABASE_URL (it looks like https://abcd1234.supabase.co, no extra path).' };
-	if (/find|record|touch|issue|save/i.test(msg) && /Student|Payment|SignIn|Certificate|Password/.test(msg))
+	if (/find|record|touch|issue|save|join/i.test(msg) && /Student|Payment|SignIn|Certificate|Password|Group/.test(msg))
 		return { code: 'db', error: 'Database problem: ' + msg.replace(/^\w+( \w+)?: /, '') };
 	return { code: 'server', error: 'Server error. Details are in Netlify → Logs → Functions.' };
 }

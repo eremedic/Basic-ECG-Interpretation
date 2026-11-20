@@ -1,15 +1,22 @@
 // In-memory stand-ins for Supabase, Stripe and email, for testing the functions.
 
 export function fakeDb() {
-	const rows = [];
+	// table name → rows; unique columns per table, like the real schema
+	const tables = { ecg_course_students: [], ecg_course_groups: [], ecg_course_group_purchases: [] };
+	const UNIQUE = { ecg_course_students: ['email'], ecg_course_groups: ['code'], ecg_course_group_purchases: ['stripe_checkout_session_id'] };
 	let seq = 0;
 	function query(table) {
+		const rows = tables[table];
+		if (!rows) throw new Error('fakeDb: unknown table ' + table);
 		let op = 'select', payload = null, filters = [], wantRow = false;
 		const run = () => {
 			const match = (r) => filters.every(([c, v]) => r[c] === v);
 			if (op === 'insert') {
-				if (rows.some((r) => r.email === payload.email)) return { data: null, error: { message: 'duplicate email' } };
-				const row = { id: `id-${++seq}`, name: '', certificate_id: null, certificate_score: null, certificate_issued_at: null, certificate_name: null, last_sign_in_at: null, ...payload };
+				for (const col of UNIQUE[table] || []) if (rows.some((r) => r[col] === payload[col])) return { data: null, error: { message: 'duplicate key value violates unique constraint (' + col + ')' } };
+				const base = table === 'ecg_course_students'
+					? { name: '', certificate_id: null, certificate_score: null, certificate_issued_at: null, certificate_name: null, last_sign_in_at: null }
+					: { created_at: new Date(Date.now() + seq).toISOString() };
+				const row = { id: table === 'ecg_course_students' ? `id-${++seq}` : `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, ...base, ...payload };
 				rows.push(row);
 				return { data: { ...row }, error: null };
 			}
@@ -27,10 +34,9 @@ export function fakeDb() {
 			single() { wantRow = 'single'; return Promise.resolve(run()); },
 			then(res, rej) { return Promise.resolve(run()).then(res, rej); }
 		};
-		void table;
 		return q;
 	}
-	return { from: query, rows };
+	return { from: query, rows: tables.ecg_course_students, tables };
 }
 
 export function fakeStripe() {
@@ -84,7 +90,7 @@ export function fakeStripe() {
 		/** Mark a created session as paid, as Stripe would after checkout. */
 		pay(id) {
 			const s = sessions.get(id);
-			Object.assign(s, { payment_status: 'paid', amount_total: 4900, currency: 'usd', customer: 'cus_123', customer_details: { email: s.customer_email, name: 'Card Name' } });
+			Object.assign(s, { payment_status: 'paid', amount_total: (s.line_items?.[0]?.price_data?.unit_amount ?? 4900) * (s.line_items?.[0]?.quantity ?? 1), currency: 'usd', customer: 'cus_123', customer_details: { email: s.customer_email, name: 'Card Name' } });
 			return s;
 		}
 	};
@@ -104,6 +110,8 @@ export function fakeDeps(over = {}) {
 		siteUrl: 'https://course.example.com',
 		priceId: '',
 		priceCents: 4900,
+		seatCents: 3900,
+		minSeats: 5,
 		sent,
 		sendEmail: async (m) => { sent.push(m); },
 		...over

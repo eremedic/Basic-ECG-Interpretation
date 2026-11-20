@@ -13,6 +13,7 @@ export function studentView(s) {
 		name: s.name,
 		email: s.email,
 		hasPassword: !!s.password_hash,
+		instructor: !!s.is_instructor,
 		accessUntil: accessUntil(s)?.toISOString() ?? null,
 		canRenew: canRenew(s),
 		course: { enrolled: !!s.paid_at, active: hasAccess(s), until: accessUntil(s)?.toISOString() ?? null },

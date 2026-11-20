@@ -13,7 +13,7 @@ recorded in Supabase.
 | `src/course.js` | The full course content. **Not published as-is.** |
 | `scripts/build.mjs` | Builds `site/js/course-preview.js` (Unit 1 only; other units show titles) and `netlify/data/course-full.json` (everything, bundled into the server function). |
 | `site/js/monitor.js`, `scripts/build-monitor-strips.mjs` | The **Live Monitor** (`/#monitor`), a separate **$14.99/month Stripe subscription**: the cardiac monitor from the Cardiac Lab defib trainer, playing 300 strips (50 each: sinus, atrial, junctional, ventricular, AV blocks, paced) for students to name. The first 5 strips in each category are free. The build writes the free strips to `site/js/monitor-strips.js` and the full bank to `netlify/data/monitor-full.json`, which the `monitor-bank` function serves only to active subscribers. |
-| `netlify/functions/` | Server API at `/api/*`: `create-checkout`, `stripe-webhook`, `claim`, `login`, `set-password`, `request-link`, `course-content`, `certificate`, `verify-certificate`. |
+| `netlify/functions/` | Server API at `/api/*`: `create-checkout`, `stripe-webhook`, `claim`, `login`, `set-password`, `request-link`, `create-group-checkout`, `join-group`, `my-groups`, `course-content`, `certificate`, `verify-certificate`. |
 | `supabase/migrations/0001_ecg_course_students.sql` | The `ecg_course_students` table. |
 
 Student flow:
@@ -23,7 +23,8 @@ Student flow:
 3. The Stripe webhook also records every payment, so it's recorded even if the student closes the tab.
 4. **Password:** right after purchase the student is offered to create a password. On any device they sign in with email + password (`/api/login`). Only a salted scrypt hash is stored; 10 wrong passwords in a row pause password sign-in for 15 minutes.
 5. **Forgot password / no password yet:** *Email me a link* sends a sign-in link (valid 24 hours, sent through Resend). It signs them in and lets them set a new password (`/api/set-password`). Changing a password while signed in needs the current one.
-6. **Certificate:** after passing the final exam (80%+), the student issues their certificate. It's stored with a unique ID that anyone can check at `/#verify?id=…`.
+6. **Group seats (instructors):** at `/#group-buy` an instructor buys seats for a class ($39 each by default, minimum 5). They get a join link and a dashboard at `/#group` showing who has joined, access dates and certificates (with a CSV download), and can add seats later. Students open the join link, confirm their email, and get one year of course access from the day they join; each uses one seat. A student who already has the course joins without using a seat. Seats can be used for 12 months after the latest purchase.
+7. **Certificate:** after passing the final exam (80%+), the student issues their certificate. It's stored with a unique ID that anyone can check at `/#verify?id=…`.
 
 Lesson progress is saved in each browser. Enrollment and certificates are stored on the server.
 
@@ -52,6 +53,8 @@ Then run `supabase/migrations/0003_live_monitor_subscription.sql`, which adds th
 
 Then run `supabase/migrations/0004_passwords.sql`, which adds the password columns (`password_hash`, `password_set_at`, `password_failed_count`, `password_locked_until`).
 
+Then run `supabase/migrations/0005_group_seats.sql`, which adds the `ecg_course_groups` and `ecg_course_group_purchases` tables and the `group_id`, `group_joined_at` and `is_instructor` columns.
+
 ### 2. Netlify
 
 Create a new site from this repository. The build settings come from `netlify.toml`. Then add these environment variables under **Site configuration → Environment variables**:
@@ -70,6 +73,8 @@ Create a new site from this repository. The build settings come from `netlify.to
 | `COURSE_PRICE_CENTS` *(optional)* | Changes the built-in price, e.g. `4900`. |
 | `STRIPE_MONITOR_PRICE_ID` *(optional)* | A recurring monthly Stripe Price for the Live Monitor. Without it, checkout charges $14.99 USD per month. |
 | `MONITOR_PRICE_CENTS` *(optional)* | Changes the built-in Live Monitor price, e.g. `1499`. (The price shown on the site is `MON_PRICE` in `site/js/app.js`.) |
+| `GROUP_SEAT_CENTS` *(optional)* | Price per group seat, e.g. `3900`. (The price shown on the site is `SEAT_PRICE` in `site/js/app.js`.) |
+| `GROUP_MIN_SEATS` *(optional)* | Minimum seats in a new group purchase. Defaults to `5`. (Shown on the site as `SEAT_MIN`.) |
 | `STRIPE_REQUIRE_TERMS` *(optional)* | `true` adds a required “I agree to the Terms and Refund Policy” checkbox on the payment page. First set a Terms of Service URL (`https://YOUR-SITE/#terms`) in Stripe → Settings → Business → Public details, or checkout will fail. |
 
 Redeploy after you add the variables.

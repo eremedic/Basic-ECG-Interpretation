@@ -1602,6 +1602,7 @@
       faq('What do I need?', 'A modern web browser. Narration uses your browser’s built-in voice and works best in Chrome, Edge or Safari.') +
       faq('What does the certificate show?', 'Your name, the course, your final exam score and the date, with a certificate ID anyone can verify on this site. ' + CERT_DISCLAIMER_SHORT + ' Whether it counts toward any requirement is up to your program, employer or agency. <a href="#terms">Full disclaimer</a>') +
       faq('Can I try it first?', 'Yes — Unit 1, The Heart’s Electrical System, is free, including its quiz.') +
+      faq('Can I buy the course for my class?', 'Yes. Instructors and programs can buy group seats at ' + money(SEAT_PRICE) + ' per student (minimum ' + SEAT_MIN + '). You get one join link to share and a dashboard that shows who has joined and earned their certificate. <a href="#group-buy">Group seats →</a>') +
       faq('What is the Live Monitor?', 'A separate monthly subscription (' + MON_PRICE + '/month, cancel anytime): 300 live ECG rhythms to interpret on a cardiac monitor, with calipers and full feedback on every strip. The first 5 strips in each category are free to try. It is not included in the ' + PRICE + ' course. <a href="#monitor">See the Live Monitor →</a>') +
       faq('Can I get a refund?', 'Yes — email us within 14 days of purchase for a full refund, as long as a certificate hasn’t been issued. See the <a href="#terms">Terms &amp; Refund Policy</a>.') +
       faq('Questions about your purchase?', 'Email <a href="mailto:support@cshealthed.com">support@cshealthed.com</a>.') +
@@ -1672,7 +1673,10 @@
         items: ['300 live rhythms on a cardiac monitor', '50 each: sinus, atrial, junctional, ventricular, AV blocks and paced', 'Freeze, change leads, print strips and measure with calipers', 'Full interpretation and feedback on every strip'],
         cta: monitorOn() ? '<span class="badge">✓ You’re subscribed</span> <a class="btn btn-ghost" href="#monitor">Go to the lab →</a>' : '<a class="btn btn-primary" href="#monitor-subscribe">Subscribe — ' + MON_PRICE + '/month</a>',
         note: monitorOn() ? (m && m.until ? (m.cancelAtPeriodEnd ? 'Canceled; access until ' + esc(niceDate(m.until)) + '.' : 'Renews on ' + esc(niceDate(m.until)) + '.') : '') : 'The first 5 strips in each category are free. <a href="#monitor">Try the lab →</a>' }) +
-      '</div><p class="hint" style="margin-top:16px;text-align:center">The course and the lab are sold separately. Already purchased? <a href="#signin">Sign in</a>. Questions: <a href="mailto:support@cshealthed.com">support@cshealthed.com</a> · <a href="#terms">Terms &amp; refunds</a></p></div></section>';
+      '</div><div class="group-band"><div><div class="buy-kicker">For instructors &amp; programs</div><h2>Buying for a class?</h2>' +
+      '<p>Group seats: <b>' + money(SEAT_PRICE) + ' per student</b> instead of ' + PRICE + ' (minimum ' + SEAT_MIN + '). One payment, one join link to share, and a dashboard showing who has joined and earned a certificate.</p></div>' +
+      '<div class="buy-cta">' + (instructor() ? '<a class="btn btn-ghost" href="#group">My class dashboard</a>' : '') + '<a class="btn btn-primary" href="#group-buy">Group seats →</a></div></div>' +
+      '<p class="hint" style="margin-top:16px;text-align:center">The course and the lab are sold separately. Already purchased? <a href="#signin">Sign in</a>. Questions: <a href="mailto:support@cshealthed.com">support@cshealthed.com</a> · <a href="#terms">Terms &amp; refunds</a></p></div></section>';
     // a small live monitor on the Lab card, playing one of the free strips
     var M = window.ECGMonitorBank, free = [];
     if (M) M.cats.forEach(function (c) { c.strips.forEach(function (x) { if (!x.locked && ['sinus', 'atrial', 'blocks'].indexOf(c.id) >= 0) free.push(x); }); });
@@ -1740,6 +1744,195 @@
     });
   }
 
+  /* ---------- group seats: instructors buy seats; students join with a code ---------- */
+  var SEAT_PRICE = 39, SEAT_MIN = 5, SEAT_MAX = 500;
+  function instructor() { return !!(account.student && account.student.instructor); }
+  function money(n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }); }
+  function seatTotal(n) {
+    var full = parseInt(PRICE.replace(/[^0-9]/g, ''), 10) || 49;
+    return n + ' seats × ' + money(SEAT_PRICE) + ' = <b>' + money(n * SEAT_PRICE) + '</b>' + (full > SEAT_PRICE ? ' <span class="muted">(you save ' + money(n * (full - SEAT_PRICE)) + ')</span>' : '');
+  }
+  function seatInput(min, val) {
+    return '<label>Number of seats <small>One seat per student. ' + min + '–' + SEAT_MAX + '.</small>' +
+      '<input name="seats" type="number" inputmode="numeric" min="' + min + '" max="' + SEAT_MAX + '" step="1" value="' + val + '" required></label>' +
+      '<p class="seat-total" id="seat-total">' + seatTotal(val) + '</p>';
+  }
+  function wireSeatForm(f, min, send) {
+    var msg = f.querySelector('.form-msg');
+    f.seats.addEventListener('input', function () {
+      var n = parseInt(f.seats.value, 10);
+      $('#seat-total').innerHTML = n >= min && n <= SEAT_MAX ? seatTotal(n) : 'Choose ' + min + '–' + SEAT_MAX + ' seats.';
+    });
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var btn = f.querySelector('button[type=submit]');
+      msg.textContent = 'Opening secure checkout…'; btn.disabled = true;
+      api('create-group-checkout', { auth: true, body: send() }).then(function (r) {
+        if (r.status === 200 && r.url) { location.href = r.url; return; }
+        btn.disabled = false;
+        msg.textContent = r.error || 'We couldn’t start checkout. Please try again.';
+      });
+    });
+  }
+  function viewGroupBuy(q) {
+    var crumbs = '<a href="#home">Home</a> / <a href="#purchase">Purchase</a> / Group seats';
+    if (q.add) {
+      if (!account.token) { location.hash = '#signin'; return; }
+      formPage('#1b2a5b', crumbs, 'Add seats to your class', 'Seats are ' + money(SEAT_PRICE) + ' each. New seats go on the same join link.',
+        '<form id="seat-form" class="stack-form">' + seatInput(1, 5) +
+        '<button class="btn btn-primary" type="submit">Continue to payment</button><div class="form-msg" role="status"></div>' +
+        '<p class="hint"><a href="#group">← Back to my class</a></p></form>');
+      wireSeatForm($('#seat-form'), 1, function () { var f = $('#seat-form'); return { group_id: q.add, seats: parseInt(f.seats.value, 10) }; });
+      return;
+    }
+    var st = account.student || {};
+    main.innerHTML = pageHead('#1b2a5b', crumbs, 'Group seats for instructors', 'Buy the course for your class or program. ' + money(SEAT_PRICE) + ' per student instead of ' + PRICE + ', minimum ' + SEAT_MIN + ' seats.') +
+      '<section class="section"><div class="wrap group-buy">' +
+      '<div class="panel"><h3>How it works</h3><ol class="group-steps">' +
+      '<li><b>Buy seats</b> for your class with one payment. Stripe emails you a receipt and invoice.</li>' +
+      '<li><b>Share your join link</b> with your students (email, your LMS, or the board).</li>' +
+      '<li><b>Students join</b> with their own email and get the full course for one year from the day they join.</li>' +
+      '<li><b>Follow along</b> on your class dashboard: who has joined and who has earned their certificate.</li></ol>' +
+      '<ul class="tick-list dark"><li>All ' + UNITS.length + ' narrated units, activities, quizzes and the final exam</li><li>A verifiable certificate of completion* for each student</li><li>Add more seats to the same class any time</li><li>Seats can be used for 12 months after purchase</li></ul>' +
+      '<p class="buy-legal"><b>Certificate disclaimer:</b> ' + CERT_DISCLAIMER_SHORT + ' The Lab (live monitor) is a separate subscription and isn’t included in seats.</p></div>' +
+      '<div class="panel form-panel"><h3>Buy seats</h3><form id="seat-form" class="stack-form">' +
+      '<label>Your name<input name="name" autocomplete="name" maxlength="120" required value="' + esc(st.name || '') + '"></label>' +
+      '<label>Your email <small>Your dashboard and receipt go here.</small><input name="email" type="email" autocomplete="email" required value="' + esc(st.email || '') + '"></label>' +
+      '<label>Program or class name <small>Students see this when they join.</small><input name="org" maxlength="120" required placeholder="e.g. Paramedic Program, Fall 2027"></label>' +
+      seatInput(SEAT_MIN, 10) +
+      '<button class="btn btn-primary" type="submit">Continue to payment</button><div class="form-msg" role="status"></div>' +
+      '<p class="hint">Need a quote, purchase order or more than ' + SEAT_MAX + ' seats? <a href="mailto:support@cshealthed.com">support@cshealthed.com</a></p></form></div>' +
+      '</div></section>';
+    wireSeatForm($('#seat-form'), SEAT_MIN, function () {
+      var f = $('#seat-form');
+      return { name: f.name.value.trim(), email: f.email.value.trim(), org: f.org.value.trim(), seats: parseInt(f.seats.value, 10) };
+    });
+  }
+  function viewWelcomeGroup(q) {
+    formPage('#1b2a5b', '<a href="#home">Home</a> / Group seats', 'Setting up your class…', 'Confirming your payment with Stripe.', '<p class="muted" id="wg-msg">One moment…</p>');
+    if (!q.session_id) { $('#wg-msg').textContent = 'No payment was found in this link.'; return; }
+    api('claim', { body: { session_id: q.session_id } }).then(function (r) {
+      if (r.status !== 200 || !r.token) {
+        $('.page-head h1').textContent = 'We couldn’t confirm your payment yet';
+        $('#wg-msg').innerHTML = esc(r.error || 'Please try again in a moment.') + ' If you were charged, <a href="#signin">sign in</a> with your email, or contact <a href="mailto:support@cshealthed.com">support@cshealthed.com</a>.';
+        return;
+      }
+      signIn(r.token, function () { history.replaceState(null, '', '#group?new=1'); route(); });
+    });
+  }
+  function viewGroup(q) {
+    var crumbs = '<a href="#home">Home</a> / My class';
+    if (!account.token) {
+      formPage('#1b2a5b', crumbs, 'Class dashboard', 'For instructors who bought group seats.', '<p>Please <a href="#signin">sign in</a> with the email you used to buy seats.</p><p class="hint">Want seats for your class? <a href="#group-buy">Group seats →</a></p>');
+      return;
+    }
+    main.innerHTML = pageHead('#1b2a5b', crumbs, 'Class dashboard', 'Loading…') + '<section class="section"><div class="wrap" id="grp"></div></section>';
+    api('my-groups', { auth: true }).then(function (r) {
+      var box = $('#grp');
+      if (!box) return;
+      if (r.status !== 200) { box.innerHTML = '<div class="panel"><p>' + esc(r.error || 'We couldn’t load your classes.') + '</p></div>'; return; }
+      if (r.seatCents) SEAT_PRICE = r.seatCents / 100;
+      var gs = r.groups || [];
+      $('.page-head p').textContent = gs.length ? 'Share your join link, then follow your students’ progress here.' : 'You don’t have any classes yet.';
+      if (!gs.length) { box.innerHTML = '<div class="panel"><p>Buy seats to create a class and get a join link for your students.</p><a class="btn btn-primary" href="#group-buy">Buy group seats →</a></div>'; return; }
+      box.innerHTML = (q.new ? '<div class="notice ok">Payment received. Your class is ready: share the join link below with your students.</div>' : '') +
+        (hasPassword() ? '' : '<div class="panel">' + createPasswordPrompt().replace('<div class="pw-prompt">', '<div class="pw-prompt" style="margin:0;padding:0;border:0">') + '</div>') +
+        gs.map(groupPanel).join('') +
+        '<p class="hint" style="text-align:center">Want to take the course yourself? Join with your own link; it uses one seat. <a href="#group-buy">Start another class →</a></p>';
+      wirePasswordForm('pw-create', {});
+      box.querySelectorAll('[data-copy]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var text = b.getAttribute('data-copy');
+          var done = function () { var t = b.textContent; b.textContent = 'Copied ✓'; setTimeout(function () { b.textContent = t; }, 1600); };
+          if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { prompt('Copy this:', text); });
+          else prompt('Copy this:', text);
+        });
+      });
+      box.querySelectorAll('[data-csv]').forEach(function (b) {
+        b.addEventListener('click', function () { downloadCsv(gs[+b.getAttribute('data-csv')]); });
+      });
+    });
+  }
+  function groupPanel(g, i) {
+    var pct = g.seats ? Math.round(100 * g.seatsUsed / g.seats) : 0;
+    var invite = 'Join ' + (g.org || 'our class') + ' in the Basic ECG Interpretation course: ' + g.joinUrl + ' (class code ' + g.code + ')';
+    var rows = g.members.map(function (m) {
+      return '<tr><td>' + esc(m.name || '—') + '</td><td>' + esc(m.email) + '</td><td>' + esc(m.joinedAt ? niceDate(m.joinedAt) : '') + '</td><td>' + esc(m.accessUntil ? niceDate(m.accessUntil) : '') + '</td>' +
+        '<td>' + (m.certificate ? '<a href="#verify?id=' + esc(m.certificate.id) + '">✓ ' + esc(m.certificate.score) + '%</a>' : '<span class="muted">Not yet</span>') + '</td></tr>';
+    }).join('');
+    return '<div class="panel grp-panel"><div class="grp-head"><div><h3>' + esc(g.org || 'Your class') + '</h3>' +
+      '<p class="muted">' + (g.open ? 'Seats can be used until ' + esc(niceDate(g.joinUntil)) + '.' : (g.seatsLeft ? 'This join link expired on ' + esc(niceDate(g.joinUntil)) + '. Add seats to reopen it.' : 'All seats are used. Add seats to let more students join.')) + '</p></div>' +
+      '<a class="btn btn-ghost" href="#group-buy?add=' + esc(g.id) + '">+ Add seats</a></div>' +
+      '<div class="grp-seats"><div class="grp-bar"><span style="width:' + pct + '%"></span></div><b>' + g.seatsUsed + ' of ' + g.seats + ' seats used</b> · ' + g.seatsLeft + ' left</div>' +
+      '<div class="grp-share"><label>Join link for your students<div class="grp-copy"><input readonly value="' + esc(g.joinUrl) + '" onclick="this.select()"><button class="btn btn-primary" data-copy="' + esc(g.joinUrl) + '">Copy link</button></div></label>' +
+      '<p class="hint">Class code: <b class="grp-code">' + esc(g.code) + '</b> · <button class="linkish" data-copy="' + esc(invite) + '">Copy an invite message</button></p></div>' +
+      '<div class="grp-members"><div class="grp-mhead"><h4>Students (' + g.members.length + ')</h4>' + (g.members.length ? '<button class="btn btn-ghost btn-sm" data-csv="' + i + '">Download CSV</button>' : '') + '</div>' +
+      (g.members.length ? '<div class="table-scroll"><table class="grp-table"><thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Access until</th><th>Certificate</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+        : '<p class="muted">No one has joined yet. Share the link above.</p>') + '</div></div>';
+  }
+  function downloadCsv(g) {
+    var cell = function (v) { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+    var lines = [['Name', 'Email', 'Joined', 'Access until', 'Certificate ID', 'Score', 'Certificate date'].map(cell).join(',')];
+    g.members.forEach(function (m) {
+      var c = m.certificate || {};
+      lines.push([m.name, m.email, m.joinedAt ? niceDate(m.joinedAt) : '', m.accessUntil ? niceDate(m.accessUntil) : '', c.id || '', c.score != null ? c.score + '%' : '', c.issuedAt ? niceDate(c.issuedAt) : ''].map(cell).join(','));
+    });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/csv' }));
+    a.download = (g.org || 'class').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-students.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  function viewJoin(q) {
+    var crumbs = '<a href="#home">Home</a> / Join a class';
+    if (q.t) {
+      var t = q.t;
+      history.replaceState(null, '', '#join');
+      formPage('#1b2a5b', crumbs, 'Joining your class…', '', '<p class="muted" id="join-msg">One moment…</p>');
+      api('join-group', { body: { join_token: t } }).then(function (r) {
+        if (r.status !== 200 || !r.token) {
+          $('.page-head h1').textContent = 'We couldn’t add you to the class';
+          $('#join-msg').innerHTML = esc(r.error || 'Please try again.') + ' Questions? <a href="mailto:support@cshealthed.com">support@cshealthed.com</a>';
+          return;
+        }
+        signIn(r.token, function () {
+          var first = (r.name || '').split(' ')[0];
+          formPage('#1b2a5b', crumbs, 'You’re in' + (first ? ', ' + esc(first) : '') + '!',
+            'You’ve joined ' + esc(r.org || 'your class') + '. ' + (r.seatUsed ? 'The full course is unlocked until ' + esc(niceDate(r.accessUntil)) + '.' : 'You already have the course, so no seat was used.'),
+            '<div class="hero-cta"><a class="btn btn-primary" href="#course">Start the course →</a></div>' + createPasswordPrompt());
+          wirePasswordForm('pw-create', {});
+        });
+      });
+      return;
+    }
+    formPage('#1b2a5b', crumbs, 'Join your class', 'Your instructor bought you a seat in the Basic ECG Interpretation course.', '<p class="muted" id="join-msg">' + (q.code ? 'Checking your class code…' : '') + '</p><div id="join-box"></div>');
+    function form(code, info) {
+      if (info) $('#join-msg').innerHTML = 'Class: <b>' + esc(info.org || 'your class') + '</b>' + (info.instructor ? ' · Instructor: ' + esc(info.instructor) : '');
+      $('#join-box').innerHTML = '<form id="join-form" class="stack-form">' +
+        '<label>Class code<input name="code" required autocomplete="off" autocapitalize="characters" placeholder="ABCD-EFGH" value="' + esc(code || '') + '"></label>' +
+        '<label>Your name <small>As it should appear on your certificate.</small><input name="name" autocomplete="name" maxlength="120" required value="' + esc(account.student ? account.student.name || '' : '') + '"></label>' +
+        '<label>Your email<input name="email" type="email" autocomplete="email" required value="' + esc(account.student ? account.student.email : '') + '"></label>' +
+        '<button class="btn btn-primary" type="submit">Join the class</button><div class="form-msg" role="status"></div>' +
+        '<p class="hint">We’ll email you a link to confirm your address. Already have an account? <a href="#signin">Sign in</a> first, then come back to this link.</p></form>';
+      var f = $('#join-form'), msg = f.querySelector('.form-msg');
+      f.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = f.querySelector('button'); btn.disabled = true; msg.className = 'form-msg'; msg.textContent = 'Sending…';
+        var email = f.email.value.trim();
+        api('join-group', { body: { code: f.code.value.trim(), name: f.name.value.trim(), email: email } }).then(function (r) {
+          btn.disabled = false;
+          if (r.status !== 200) { msg.textContent = r.error || 'We couldn’t send the email. Please try again.'; return; }
+          $('#join-box').innerHTML = '<div class="notice ok"><b>Check your email.</b> We sent a link to ' + esc(email) + '. Open it to finish joining (check your spam folder too). It expires in 3 days.</div>';
+        });
+      });
+    }
+    if (!q.code) { form('', null); return; }
+    api('join-group?code=' + encodeURIComponent(q.code)).then(function (r) {
+      if (r.status !== 200) { $('#join-msg').textContent = r.error || 'We couldn’t find that class.'; form(q.code, null); return; }
+      if (!r.open) { $('#join-msg').innerHTML = '<b>' + esc(r.org || 'This class') + '</b> has no seats available right now. Ask your instructor to add more seats.'; return; }
+      form(r.code, r);
+    });
+  }
+
   /* ---------- sign in: password, or an emailed link (also the password reset) ---------- */
   function requestLink(email, msg) {
     if (!email) { msg.textContent = 'Enter your email above first.'; return; }
@@ -1751,7 +1944,7 @@
     });
   }
   function hasPassword() { return !!(account.student && account.student.hasPassword); }
-  function homeAfterSignIn() { return paid() || !monitorOn() ? '#course' : '#monitor'; }
+  function homeAfterSignIn() { return paid() ? '#course' : monitorOn() ? '#monitor' : instructor() ? '#group' : '#course'; }
   // A form to create, change or reset the password. opts: current (ask for the
   // current password), linkToken (reset from an email link), submit, onDone.
   function passwordFormHtml(id, opts) {
@@ -1794,7 +1987,8 @@
   }
   function signedInLinks() {
     return (paid() ? '<a class="btn btn-primary" href="#course">Go to my course →</a> ' : '') +
-      (monitorOn() ? '<a class="btn ' + (paid() ? 'btn-ghost' : 'btn-primary') + '" href="#monitor">Lab →</a> ' : '');
+      (monitorOn() ? '<a class="btn ' + (paid() ? 'btn-ghost' : 'btn-primary') + '" href="#monitor">Lab →</a> ' : '') +
+      (instructor() ? '<a class="btn ' + (paid() || monitorOn() ? 'btn-ghost' : 'btn-primary') + '" href="#group">My class dashboard →</a> ' : '');
   }
   // Shown on the welcome pages after a purchase, when there's no password yet.
   function createPasswordPrompt() {
@@ -1826,7 +2020,7 @@
       });
       return;
     }
-    if (account.token && (paid() || monitorOn())) {
+    if (account.token && (paid() || monitorOn() || instructor())) {
       var has = hasPassword();
       formPage('#1b2a5b', crumbs, 'You’re signed in', account.student ? 'Signed in as ' + esc(account.student.email) + '.' : '',
         '<div class="hero-cta">' + signedInLinks() + '<button class="btn btn-ghost" id="signout-btn">Sign out</button></div>' +
@@ -2211,6 +2405,10 @@
     else if (h === 'verify') { viewVerify(q); nav = 'verify'; }
     else if (h === 'terms') { viewTerms(); nav = 'terms'; }
     else if (h === 'purchase') { viewPurchase(); nav = 'purchase'; }
+    else if (h === 'group-buy') { viewGroupBuy(q); nav = 'purchase'; }
+    else if (h === 'welcome-group') viewWelcomeGroup(q);
+    else if (h === 'group') viewGroup(q);
+    else if (h === 'join') viewJoin(q);
     else if (h === 'monitor') { viewMonitorHome(); nav = 'monitor'; }
     else if (h === 'monitor-subscribe') { viewMonitorSubscribe(); nav = 'monitor'; }
     else if (h === 'welcome-monitor') { viewWelcomeMonitor(q); nav = 'monitor'; }

@@ -153,7 +153,7 @@ test('course-content: full course for enrolled students only', async () => {
 	const { accessUntil, canRenew, course: crs, monitor, ...rest } = r.student;
 	assert.equal(crs.active, true);
 	assert.equal(monitor.active, false);
-	assert.deepEqual(rest, { name: 'Pat Student', email: 'pat@example.com', hasPassword: false, certificate: null });
+	assert.deepEqual(rest, { name: 'Pat Student', email: 'pat@example.com', hasPassword: false, instructor: false, certificate: null });
 	const days = (new Date(accessUntil) - Date.now()) / 86400000;
 	assert.ok(days > 364 && days <= 365, 'one year of access');
 	assert.equal(canRenew, false);
@@ -459,4 +459,140 @@ test('passwords: lockout after 10 wrong tries; ended access is refused', async (
 	const [st, r] = await body(await login(post('/api/login', { email: 'pat@example.com', password: 'heart-rhythm-1' }), deps));
 	assert.equal(st, 403);
 	assert.equal(r.expired, true);
+});
+
+import { handle as groupCheckout } from '../netlify/functions/create-group-checkout.mjs';
+import { handle as joinGroupFn } from '../netlify/functions/join-group.mjs';
+import { handle as myGroups } from '../netlify/functions/my-groups.mjs';
+import { cleanCode } from '../netlify/lib/groups.mjs';
+
+/** An instructor buys seats; returns their token and the class. */
+async function buySeats(deps, seats = 5, email = 'teach@college.edu') {
+	const [st, c] = await body(await groupCheckout(post('/api/create-group-checkout', { name: 'Dana Teach', email, org: 'Medic Class 2027', seats }), deps));
+	assert.equal(st, 200);
+	const id = c.url.split('/').pop();
+	deps.stripe.pay(id);
+	const [s2, r] = await body(await claim(post('/api/claim', { session_id: id }), deps));
+	assert.equal(s2, 200);
+	assert.equal(r.product, 'group');
+	const auth = { authorization: `Bearer ${r.token}` };
+	const [, mg] = await body(await myGroups(get('/api/my-groups', auth), deps));
+	return { id, token: r.token, auth, group: mg.groups[0] };
+}
+/** A student joins with the code and confirms by email; returns the join response. */
+async function joinClass(deps, code, name, email) {
+	const [st, r] = await body(await joinGroupFn(post('/api/join-group', { code, name, email }), deps));
+	if (st !== 200) return [st, r];
+	const t = decodeURIComponent(deps.sent.at(-1).text.match(/#join\?t=([^\s]+)/)[1]);
+	return body(await joinGroupFn(post('/api/join-group', { join_token: t }), deps));
+}
+
+test('group checkout: seats × $39, minimum seats, validation', async () => {
+	const deps = fakeDeps();
+	const [st, r] = await body(await groupCheckout(post('/api/create-group-checkout', { name: 'Dana', email: 'D@college.edu', org: 'Medic Class', seats: 12 }), deps));
+	assert.equal(st, 200);
+	const s = deps.stripe.created[0];
+	assert.equal(s.mode, 'payment');
+	assert.equal(s.line_items[0].quantity, 12);
+	assert.equal(s.line_items[0].price_data.unit_amount, 3900);
+	assert.equal(s.metadata.product, 'ecg-group-seats');
+	assert.equal(s.metadata.owner_email, 'd@college.edu');
+	assert.match(s.success_url, /#welcome-group\?session_id=/);
+	assert.ok(r.url);
+	assert.equal((await groupCheckout(post('/api/create-group-checkout', { name: 'Dana', email: 'd@college.edu', org: 'X', seats: 4 }), deps)).status, 400, 'below minimum');
+	assert.equal((await groupCheckout(post('/api/create-group-checkout', { name: 'Dana', email: 'd@college.edu', org: 'X', seats: 501 }), deps)).status, 400, 'above maximum');
+	assert.equal((await groupCheckout(post('/api/create-group-checkout', { name: 'Dana', email: 'd@college.edu', org: '', seats: 10 }), deps)).status, 400, 'needs a class name');
+});
+
+test('group purchase: recorded once (claim + webhook), instructor can sign in, dashboard shows the class', async () => {
+	const deps = fakeDeps();
+	const { id, auth, group } = await buySeats(deps, 6);
+	assert.equal(group.seats, 6);
+	assert.equal(group.seatsUsed, 0);
+	assert.equal(group.org, 'Medic Class 2027');
+	assert.match(group.code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+	assert.equal(group.joinUrl, `https://course.example.com/#join?code=${group.code}`);
+	// webhook for the same payment adds nothing
+	const evt = { type: 'checkout.session.completed', data: { object: deps.stripe.sessions.get(id) } };
+	assert.equal((await webhook(post('/api/stripe-webhook', JSON.stringify(evt), { 'stripe-signature': 'good:whsec_test' }), deps)).status, 200);
+	assert.equal(deps.db.tables.ecg_course_groups.length, 1);
+	assert.equal(deps.db.tables.ecg_course_groups[0].seats, 6);
+	// the instructor has no course access but is an instructor, and can get a sign-in link
+	const [, m] = await body(await me(get('/api/me', auth), deps));
+	assert.equal(m.student.instructor, true);
+	assert.equal(m.student.course.active, false);
+	await requestLink(post('/api/request-link', { email: 'teach@college.edu' }), deps);
+	assert.match(deps.sent.at(-1).text, /#signin\?t=/);
+	// add seats to the same class
+	const [st, c] = await body(await groupCheckout(post('/api/create-group-checkout', { group_id: group.id, seats: 4 }, auth), deps));
+	assert.equal(st, 200);
+	const id2 = c.url.split('/').pop();
+	deps.stripe.pay(id2);
+	await claim(post('/api/claim', { session_id: id2 }), deps);
+	await claim(post('/api/claim', { session_id: id2 }), deps);
+	assert.equal(deps.db.tables.ecg_course_groups.length, 1);
+	assert.equal(deps.db.tables.ecg_course_groups[0].seats, 10);
+	// only the owner can add seats
+	const other = { authorization: `Bearer ${signToken('access', 'x@y.co', deps.secret)}` };
+	assert.equal((await groupCheckout(post('/api/create-group-checkout', { group_id: group.id, seats: 4 }, other), deps)).status, 404);
+	const [, mg] = await body(await myGroups(get('/api/my-groups', other), deps));
+	assert.deepEqual(mg.groups, []);
+});
+
+test('join a class: email confirm, seat used once, full access, dashboard lists students; seats run out', async () => {
+	const deps = fakeDeps();
+	const { auth, group } = await buySeats(deps, 5);
+	const [, info] = await body(await joinGroupFn(get(`/api/join-group?code=${group.code.toLowerCase().replace('-', ' ')}`), deps));
+	assert.equal(info.org, 'Medic Class 2027');
+	assert.equal(info.open, true);
+	assert.equal((await joinGroupFn(get('/api/join-group?code=ZZZZ-ZZZZ'), deps)).status, 404);
+
+	// asking to join only sends an email; no seat yet
+	await joinGroupFn(post('/api/join-group', { code: group.code, name: 'Sam One', email: 'sam@student.edu' }), deps);
+	assert.equal(deps.db.tables.ecg_course_groups[0].seats_used, 0);
+	assert.match(deps.sent.at(-1).subject, /Medic Class 2027/);
+
+	let [st, r] = await joinClass(deps, group.code, 'Sam One', 'Sam@Student.edu');
+	assert.equal(st, 200);
+	assert.equal(r.seatUsed, true);
+	assert.equal(r.email, 'sam@student.edu');
+	const sam = { authorization: `Bearer ${r.token}` };
+	assert.equal((await courseContent(get('/api/course-content', sam), deps)).status, 200, 'full course unlocked');
+	// the same link again (or joining again) uses no second seat
+	[st, r] = await joinClass(deps, group.code, 'Sam One', 'sam@student.edu');
+	assert.equal(r.seatUsed, false);
+	assert.equal(deps.db.tables.ecg_course_groups[0].seats_used, 1);
+
+	// someone who already bought the course joins without using a seat
+	await enroll(deps, 'Paid Person', 'paid@student.edu');
+	[st, r] = await joinClass(deps, group.code, 'Paid Person', 'paid@student.edu');
+	assert.equal(r.seatUsed, false);
+	assert.equal(deps.db.tables.ecg_course_groups[0].seats_used, 1);
+
+	// fill the remaining 4 seats, then the class is full
+	for (let i = 2; i <= 5; i++) assert.equal((await joinClass(deps, group.code, 'S' + i, `s${i}@student.edu`))[0], 200);
+	[st, r] = await joinClass(deps, group.code, 'Late', 'late@student.edu');
+	assert.equal(st, 410);
+	assert.match(r.error, /no seats/);
+
+	const [, mg] = await body(await myGroups(get('/api/my-groups', auth), deps));
+	const g = mg.groups[0];
+	assert.equal(g.seatsUsed, 5);
+	assert.equal(g.seatsLeft, 0);
+	assert.equal(g.open, false);
+	assert.equal(g.members.length, 6);
+	assert.ok(g.members.some((m) => m.email === 'sam@student.edu' && m.accessUntil && m.certificate === null));
+});
+
+test('join a class: bad or expired tokens; expired class; code cleanup', async () => {
+	const deps = fakeDeps();
+	const { group } = await buySeats(deps, 5);
+	assert.equal((await joinGroupFn(post('/api/join-group', { join_token: 'nope' }), deps)).status, 401);
+	const old = signToken('join', 'a@b.co', deps.secret, Date.now() - 4 * 86400000, { g: group.id, n: 'A' });
+	assert.equal((await joinGroupFn(post('/api/join-group', { join_token: old }), deps)).status, 401, 'expires after 3 days');
+	assert.equal((await joinGroupFn(post('/api/join-group', { join_token: signToken('link', 'a@b.co', deps.secret) }), deps)).status, 401, 'a sign-in link is not a join link');
+	deps.db.tables.ecg_course_groups[0].join_until = new Date(Date.now() - 1000).toISOString();
+	assert.equal((await joinGroupFn(post('/api/join-group', { code: group.code, name: 'A', email: 'a@b.co' }), deps)).status, 410);
+	assert.equal(cleanCode(' k7qm-3rxp '), 'K7QM-3RXP');
+	assert.equal(cleanCode('abc'), null);
 });

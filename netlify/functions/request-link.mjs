@@ -33,7 +33,7 @@ export async function handle(req, deps) {
 	const email = cleanEmail((await readJson(req))?.email);
 	if (!email) return json(400, { error: 'Please enter a valid email address.' });
 	const student = await findStudent(deps.db, email);
-	if (hasAccess(student) || monitorActive(student)) {
+	if (hasAccess(student) || monitorActive(student) || student?.is_instructor) {
 		const link = `${deps.siteUrl}/#signin?t=${encodeURIComponent(signToken('link', email, deps.secret))}`;
 		const { html, text } = signInEmail(student.name, link);
 		try {

@@ -29,7 +29,7 @@ export async function handle(req, deps) {
 		return json(401, { error: WRONG });
 	}
 	await clearFailedPasswords(deps.db, student);
-	if (!hasAccess(student) && !monitorActive(student)) {
+	if (!hasAccess(student) && !monitorActive(student) && !student.is_instructor) {
 		if (student.paid_at) return json(403, { expired: true, accessUntil: accessUntil(student).toISOString(), error: 'Your one-year access has ended. Enroll again to renew it.' });
 		return json(403, { error: 'Your Lab subscription has ended. Subscribe again to continue.' });
 	}
