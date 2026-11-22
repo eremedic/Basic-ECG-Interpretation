@@ -170,13 +170,105 @@
       hint.textContent = "Look back at the strip: it's now marked up to show what makes this " + nm + "." + (said.length ? " Labeled: " + said.join(", ") + "." : "") + (note ? " " + note + "." : ""); }
   }
 
+  /* ---------- 12-lead printout: four columns of three leads + a lead II rhythm strip ---------- */
+  var LEAD_COLS = [["I", "II", "III"], ["aVR", "aVL", "aVF"], ["V1", "V2", "V3"], ["V4", "V5", "V6"]];
+  function decodeStr(d) { var v = [], cur = 0, i = 0; while (i < d.length) { var ch = d[i]; if (ch === "|") { var j = d.indexOf("|", i + 1); cur = parseInt(d.slice(i + 1, j), 10); v.push(cur); i = j + 1; } else { cur += d.charCodeAt(i) - 80; v.push(cur); i++; } } return v; }
+  function ecg12SVG(q) {
+    var RH = 1200, BASE = 760, lines = "", labels = "";
+    function pts(arr, x0, y0) { var o = new Array(arr.length); for (var i = 0; i < arr.length; i++) { var v = Math.max(-110, Math.min(185, arr[i])); o[i] = (x0 + i * 2) + "," + (y0 - v * 4).toFixed(1); } return o.join(" "); }
+    LEAD_COLS.forEach(function (col, ci) { col.forEach(function (ld, ri) {
+      var y0 = ri * RH + BASE, x0 = ci * 2500;
+      lines += '<polyline points="' + pts(decodeStr(q.leads[ld]), x0, y0) + '"/>';
+      labels += '<text x="' + (x0 + 50) + '" y="' + (ri * RH + 190) + '">' + ld + '</text>';
+      if (ci > 0) lines += '<polyline points="' + x0 + ',' + (y0 - 170) + ' ' + x0 + ',' + (y0 + 170) + '"/>';
+    }); });
+    lines += '<polyline points="' + pts(decodeStr(q.leads.rhythm), 0, 3 * RH + BASE) + '"/>';
+    labels += '<text x="50" y="' + (3 * RH + 190) + '">II</text>';
+    return '<svg class="ecg12" viewBox="0 0 10000 4800" role="img" aria-label="12-lead ECG"><rect width="10000" height="4800" fill="url(#pMajor)"/>' +
+      '<g fill="none" stroke="var(--trace)" stroke-width="1.9" stroke-linejoin="round" vector-effect="non-scaling-stroke">' + lines + '</g>' +
+      '<g class="ldl" fill="var(--trace)">' + labels + '</g></svg>';
+  }
+  /* 12-lead teaching marks (after a wrong answer): one color per kind of finding, the same as on the strips */
+  var MK12C = { ste: "#D9121A", std: "#0A6FDD", q: "#E05F00", t: "#8E24AA", qrs: "#00838F", delta: "#C2185B", volt: "#8D5B00", p: "#2E8B00", qt: "#B07A00" };
+  var MK12_COLOR = { stu: MK12C.ste, j: MK12C.ste, brug: MK12C.ste, rec: MK12C.std, dw: MK12C.std, q: MK12C.q, tpk: MK12C.t, tinv: MK12C.t, tbi: MK12C.t,
+    u: MK12C.qt, qt: MK12C.qt, rsr: MK12C.qrs, sw: MK12C.qrs, qs: MK12C.qrs, notch: MK12C.qrs, delta: MK12C.delta, volt: MK12C.volt, tallr: MK12C.volt, pr: MK12C.p };
+  var MK12_KEY = [[MK12C.ste, "ST elevation (and its shape)", ["stu", "j", "brug"]], [MK12C.std, "ST depression: reciprocal, diffuse or upsloping", ["rec", "dw"]],
+    [MK12C.q, "Q waves", ["q"]], [MK12C.t, "T-wave changes: peaked, inverted, biphasic", ["tpk", "tinv", "tbi"]],
+    [MK12C.qrs, "QRS width and bundle branch patterns (rSR′, QS, notched R)", ["rsr", "sw", "qs", "notch"]], [MK12C.delta, "Delta wave (pre-excitation)", ["delta"]],
+    [MK12C.volt, "Voltage and tall R waves", ["volt", "tallr"]], [MK12C.p, "PR segment", ["pr"]], [MK12C.qt, "QT interval and U waves", ["u", "qt"]]];
+  function svgEl(tag, at) { var e = document.createElementNS("http://www.w3.org/2000/svg", tag); for (var k in at) e.setAttribute(k, at[k]); return e; }
+  function markECG12(host, q) {
+    var svg = host && host.querySelector("svg.ecg12"), m = q.mk; if (!svg || !m) return;
+    var old = svg.querySelector("g.mk12"); if (old) old.remove();
+    var g = svgEl("g", { "class": "mk12" }), per = {}, used = {}, sum = {};
+    var cell = function (ld) { for (var ci = 0; ci < LEAD_COLS.length; ci++) { var ri = LEAD_COLS[ci].indexOf(ld); if (ri >= 0) return [ri, ci]; } return [3, 0]; };
+    m.f.forEach(function (x) {
+      var ld = x[0], kind = x[1], label = x[2], v = x[3], col = MK12_COLOR[kind] || "#02245D", rc = cell(ld), ri = rc[0], ci = rc[1], y0 = ri * 1200 + 760;
+      var d = (m.ld && m.ld[ld]) || m.d, lo = ci * 2500 + 120, hi = ci * 2500 + 2380;
+      used[kind] = 1; var base = label.replace(/\s*[\d.]+\s*mm/g, "").replace(/\s+\(.*\)$/, "").trim(); if ((sum[base] = sum[base] || []).indexOf(ld) < 0) sum[base].push(ld);
+      m.b.forEach(function (bt) { var c = bt[0], tp = bt[1]; if (c < lo || c > hi) return;
+        var sh;
+        if (kind === "stu" || kind === "rec" || kind === "j" || kind === "brug" || kind === "dw") {
+          var x1 = c + d / 2, w = kind === "dw" ? 75 : 115, h = Math.max(Math.abs(v * 400), 16), yy = v >= 0 ? y0 - h : y0;
+          sh = svgEl("rect", { x: x1, y: yy, width: w, height: h, rx: 8, fill: col, "fill-opacity": .3, stroke: col, "stroke-width": 9 });
+        } else if (kind === "tpk" || kind === "tinv" || kind === "tbi" || kind === "u") {
+          var cx = kind === "u" ? tp + 170 : tp, ry = Math.max(Math.abs(v * 400) / 2 + 45, 70);
+          sh = svgEl("ellipse", { cx: cx, cy: y0 - v * 200, rx: kind === "u" ? 85 : 120, ry: ry, fill: col, "fill-opacity": .14, stroke: col, "stroke-width": 9 });
+        } else if (kind === "pr") {
+          sh = svgEl("rect", { x: c - d / 2 - 95, y: y0 - 55, width: 85, height: 110, rx: 10, fill: col, "fill-opacity": .2, stroke: col, "stroke-width": 8 });
+        } else {
+          var a = kind === "delta" ? c - d / 2 - 55 : (kind === "q" ? c - d / 2 - 18 : c - d / 2 - 22), b2 = kind === "delta" ? c - d / 2 + 25 : (kind === "q" ? c - d / 2 + 40 : c + d / 2 + 22);
+          var top = y0 - Math.max(v, 0) * 400 - 45, bot = y0 - Math.min(v, 0) * 400 + 45;
+          sh = svgEl("rect", { x: a, y: top, width: b2 - a, height: bot - top, rx: 12, fill: col, "fill-opacity": .13, stroke: col, "stroke-width": 9, "stroke-dasharray": "28 16" });
+        }
+        g.appendChild(sh); });
+      var k = per[ld] = (per[ld] || 0) + 1;
+      var tx = svgEl("text", { x: ci * 2500 + 330, y: ri * 1200 + 175 + (k - 1) * 125, fill: col, "class": "mk12-t" }); tx.textContent = label; g.appendChild(tx);
+    });
+    if (m.qt) { var yq = 3 * 1200 + 330, colq = MK12_COLOR.qt; used.qt = 1;
+      g.appendChild(svgEl("path", { d: "M" + m.qt[0] + " " + (yq + 60) + "V" + yq + "H" + m.qt[1] + "V" + (yq + 60), fill: "none", stroke: colq, "stroke-width": 14 }));
+      var tq = svgEl("text", { x: (m.qt[0] + m.qt[1]) / 2, y: yq - 30, fill: colq, "class": "mk12-t", "text-anchor": "middle" }); tq.textContent = m.qt[2]; g.appendChild(tq); sum[m.qt[2]] = ["II"]; }
+    if (m.spr) { var ts = svgEl("text", { x: 330, y: 3 * 1200 + 175, fill: MK12C.delta, "class": "mk12-t" }); ts.textContent = m.spr; g.appendChild(ts); used.delta = 1; sum[m.spr] = ["II"]; }
+    svg.appendChild(g);
+    var paper = host.closest(".paper") || host, keyEl = paper.parentNode.querySelector(".mk-legend"); if (keyEl) keyEl.remove();
+    var chips = MK12_KEY.filter(function (k) { return k[2].some(function (x) { return used[x]; }); }).map(function (k) { return '<span><i style="background:' + k[0] + '"></i>' + esc(k[1]) + '</span>'; }).join("");
+    var leg = document.createElement("div"); leg.className = "mk-legend";
+    leg.innerHTML = '<b>Why it\'s ' + esc(q.cat) + ':</b>' + (chips || '<span>No ST elevation or depression, normal QRS and intervals: nothing abnormal to mark.</span>');
+    paper.parentNode.insertBefore(leg, paper.nextSibling);
+    var hint = ROOT && ROOT.querySelector(".mk-hint span");
+    if (hint) { var parts = Object.keys(sum).map(function (b) { return sum[b][0] === "II" && /QT|PR/.test(b) ? b + " (rhythm strip)" : b + " in " + sum[b].join(", "); });
+      hint.textContent = "Look back at the ECG: the colored marks show why this is " + q.cat + ". " + (parts.length ? parts.join(" · ") + "." : "Nothing abnormal: no ST elevation or depression, normal QRS width and intervals."); }
+  }
+  /* 12-lead follow-up after a STEMI or STEMI equivalent: which coronary artery? */
+  var VESSELS = ["Right coronary artery (RCA)", "Left anterior descending (LAD), mid or distal", "Proximal LAD", "Left circumflex (LCx)", "Left main or multivessel disease"];
+  var VESSEL_OF = {
+    "Inferior STEMI": [0, "Inferior STEMI is usually the RCA (about 80%); the rest are the circumflex. ST elevation bigger in III than II, with reciprocal depression in I and aVL, points to the RCA. Check V4R for right-ventricular involvement and be careful with nitrates."],
+    "Anterior STEMI": [1, "Anterior STEMI (V1–V4) is the left anterior descending artery, which supplies the front of the left ventricle and the septum."],
+    "Anterolateral STEMI": [2, "Elevation across the anterior and lateral leads (V2–V6, I, aVL) means a big territory: a proximal LAD occlusion before the diagonal branches. High risk of shock and arrhythmias."],
+    "Lateral STEMI": [3, "Lateral STEMI (I, aVL, V5, V6) is usually the left circumflex (sometimes a diagonal branch of the LAD). Reciprocal depression shows up inferiorly."],
+    "Posterior MI": [3, "Posterior MI is usually the left circumflex (sometimes the RCA's posterior descending branch). Confirm with posterior leads V7–V9."],
+    "Wellens syndrome": [2, "Wellens T waves mean a critical proximal LAD stenosis that has reperfused. It can occlude again at any time: no stress testing, urgent cath."],
+    "De Winter T waves": [2, "De Winter T waves are a STEMI equivalent from an acute proximal LAD occlusion: activate the cath lab."],
+    "ST elevation in aVR with diffuse ST depression": [4, "ST elevation in aVR with widespread depression suggests left main or severe multivessel (often three-vessel) ischemia, or global subendocardial ischemia from another cause."]
+  };
+  function vesselHTML(q, st) {
+    var v = VESSEL_OF[q.cat]; if (!v || st.p[q.n] == null) return "";
+    st.v = st.v || {}; var picked = st.v[q.n], done = picked != null, letters = "ABCDE";
+    var opts = VESSELS.map(function (o, i) { var cls = done ? (i === v[0] ? "is-right" : (i === picked ? "is-wrong" : "is-dim")) : "";
+      return '<button class="opt ' + cls + '" data-v="' + i + '" ' + (done ? "disabled" : "") + '><span class="k">' + letters[i] + '</span><span>' + esc(o) + '</span></button>'; }).join("");
+    var fb = done ? '<div class="fb ' + (picked === v[0] ? 'ok' : 'no') + '"><div class="verdict">' + (picked === v[0] ? IC.ok + 'Correct' : IC.no + 'Not quite: it\'s the ' + esc(VESSELS[v[0]].replace(/ \(.*\)/, "").replace(/, mid or distal/, ""))) + '</div><p class="fb-note">' + esc(v[1]) + '</p></div>' : '';
+    return '<div class="card panel vessel-q"><div class="eyebrow">Follow-up question</div><h4>Which coronary artery is most likely involved?</h4><div class="opts" id="arVessel" role="group" aria-label="Culprit artery">' + opts + '</div><div aria-live="polite">' + fb + '</div></div>';
+  }
+  function vesselScore() { var st = S.ar.twelve, c = 0, a = 0; if (!st || !st.v) return { c: 0, a: 0 };
+    Object.keys(st.v).forEach(function (n) { a++; if ((st.vok || {})[n]) c++; }); return { c: c, a: a }; }
+
   function feedbackHTML(q, chosen) {
     var ok = chosen === q.cat, C = CATS[q.cat], X = CATS[chosen], revealed = chosen === REVEALED;
     var h = '<div class="fb ' + (ok ? "ok" : "no") + '"><div class="verdict">' + (ok ? IC.ok + "Correct" : IC.no + (revealed ? "Answer revealed · counted as wrong" : "Not quite")) + '</div>';
     h += '<div class="answer-name">' + esc(q.name) + '</div>';
-    if (!ok) h += '<p class="fb-note mk-hint">' + IC.bulb + '<span>Look back at the strip: it\'s now marked up to show what makes this ' + esc(q.cat.replace(/\s*\(.*\)$/, "")) + '.</span></p>';
+    if (!ok) h += '<p class="fb-note mk-hint">' + IC.bulb + '<span>Look back at the ' + (q.leads ? 'ECG' : 'strip') + ': it\'s now marked up to show what makes this ' + esc(q.cat.replace(/\s*\(.*\)$/, "")) + '.</span></p>';
     if (revealed) h += '<p class="fb-note">The cardiologist talked you through this one, so it counts as wrong. Here\'s the full explanation.</p>';
-    else if (!ok && X) h += '<div class="why"><div><small>You chose</small><b>' + esc(chosen) + '</b>' + esc(X.key) + '</div><div><small>This strip is</small><b>' + esc(q.cat) + '</b>' + esc(C.key) + '</div></div>';
+    else if (!ok && X) h += '<div class="why"><div><small>You chose</small><b>' + esc(chosen) + '</b>' + esc(X.key) + '</div><div><small>' + (q.leads ? 'This ECG is' : 'This strip is') + '</small><b>' + esc(q.cat) + '</b>' + esc(C.key) + '</div></div>';
     if (C) h += '<div class="clue">' + IC.bulb + '<p><b>The tell: </b>' + esc(C.clue) + '</p></div>';
     h += '<div class="interp"><table class="itable"><tbody>' + q.rows.map(function (r) { return '<tr><th scope="row">' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>'; }).join("") + '</tbody></table>';
     h += '<div class="action"><h4>Field action</h4><ul>' + q.action.map(function (a) { return '<li>' + esc(a) + '</li>'; }).join("") + '</ul></div></div></div>';
@@ -202,7 +294,7 @@
     var sub = HOST && HOST.subscribed(), n = FREE.free;
     var t = META.map(function (m) {
       var sc = areaScore(m.key), started = sc.a > 0, done = sc.a >= sc.t;
-      return tile('#practice-' + m.key, m.color, m.soft, m.ink, m.wide, IC.ecg, m.total + ' strips' + (sub ? '' : ' · first ' + n + ' free'), m.title, m.blurb, pct(sc.a, sc.t),
+      return tile('#practice-' + m.key, m.color, m.soft, m.ink, m.wide, IC.ecg, m.total + ' ' + (m.unit || 'strips') + (sub ? '' : ' · first ' + n + ' free'), m.title, m.blurb, pct(sc.a, sc.t),
         started ? sc.a + ' of ' + sc.t + ' answered · ' + pct(sc.c, sc.a) + '% correct' : 'Not started', done ? 'Review' : (started ? 'Resume' : 'Start'));
     }).join("");
     var cl = FREE.codelab, run = Object.keys(S.cl).length, passed = Object.keys(S.cl).filter(function (k) { return S.cl[k] && S.cl[k].ok; }).length;
@@ -229,17 +321,17 @@
   function scrollTop() { window.scrollTo({ top: 0, behavior: "auto" }); }
   function renderArea(key) {
     var m = meta(key), data = AREAS[key] || freeArea(key), body = $("arBody"); if (!body) return;
-    var st = areaState(key), total = m.total, avail = data.items.length, partial = avail < total;
+    var st = areaState(key), total = m.total, avail = data.items.length, partial = avail < total, twelve = !!(data.items[0] && data.items[0].leads), unit = twelve ? "ECG" : "Strip";
     if (st.pi > total + 1) st.pi = 1;
     var sc = areaScore(key);
-    var head = '<div class="qhead"><div><div class="eyebrow">Lab · ' + esc(m.title) + '</div><h2>' + (st.pi > total ? 'Results' : 'Strip <span class="num">' + st.pi + '</span><span> / ' + total + '</span>') + '</h2></div>' +
-      '<div class="qstats"><span>Answered <b class="num">' + sc.a + '</b></span><span>Correct <b class="num">' + sc.c + '</b></span><span>Score <b class="num">' + (sc.a ? pct(sc.c, sc.a) + '%' : '–') + '</b></span><a class="btn btn-ghost" href="#monitor">All of the Lab</a></div></div>' +
+    var head = '<div class="qhead"><div><div class="eyebrow">Lab · ' + esc(m.title) + '</div><h2>' + (st.pi > total ? 'Results' : unit + ' <span class="num">' + st.pi + '</span><span> / ' + total + '</span>') + '</h2></div>' +
+      '<div class="qstats"><span>Answered <b class="num">' + sc.a + '</b></span><span>Correct <b class="num">' + sc.c + '</b></span><span>Score <b class="num">' + (sc.a ? pct(sc.c, sc.a) + '%' : '–') + '</b></span>' + (twelve && vesselScore().a ? '<span>Vessel <b class="num">' + vesselScore().c + '/' + vesselScore().a + '</b></span>' : '') + '<a class="btn btn-ghost" href="#monitor">All of the Lab</a></div></div>' +
       '<div class="progress" style="margin-bottom:16px"><i style="width:' + pct(sc.a, total) + '%"></i></div>';
     renderCardioPop(null);
     if (st.pi > total) { body.innerHTML = head + summaryHTML(key, data); bindSummary(key); return; }
     if (st.pi > avail) {
-      body.innerHTML = head + '<div class="card panel area-locked" style="--ac:' + m.color + '"><span class="sv-ic">' + IC.lock + '</span><h3>You\'ve finished the free strips in ' + esc(m.title.toLowerCase()) + '</h3>' +
-        '<p class="empty">The first ' + avail + ' of ' + total + ' strips are free. A Live Monitor subscription unlocks all ' + total + ', every other practice area and the whole Code lab.</p>' +
+      body.innerHTML = head + '<div class="card panel area-locked" style="--ac:' + m.color + '"><span class="sv-ic">' + IC.lock + '</span><h3>You\'ve finished the free ' + (twelve ? '12-lead ECGs' : 'strips in ' + esc(m.title.toLowerCase())) + '</h3>' +
+        '<p class="empty">The first ' + avail + ' of ' + total + ' ' + (twelve ? 'ECGs' : 'strips') + ' are free. A Live Monitor subscription unlocks all ' + total + ', every other practice area and the whole Code lab.</p>' +
         HOST.subscribeHTML() + '<div class="qnav" style="justify-content:flex-start"><button class="btn btn-ghost" id="arBack">← Back to strip ' + avail + '</button></div></div>';
       $("arBack").onclick = function () { st.pi = avail; save(); renderArea(key); scrollTop(); };
       return;
@@ -251,22 +343,30 @@
     }).join("");
     var dots = "";
     for (var n = 1; n <= total; n++) { var x = st.p[n], c = x == null ? "" : (st.ok[n] ? "r" : "w"), lockd = n > avail;
-      dots += '<button class="dot ' + c + (n === st.pi ? " cur" : "") + '" data-n="' + n + '" aria-label="Strip ' + n + (lockd ? ' (subscribers)' : '') + '"' + (lockd ? ' disabled' : '') + '>' + n + '</button>'; }
-    body.innerHTML = head + '<div class="card qcard"><div class="strip-top"><div class="stem"><span class="tag">' + esc(m.short) + '</span><p>' + esc(q.stem || 'Identify this rhythm.') + '</p></div>' + (q.hints ? cardioBtnHTML(q, st, done) : '') + '</div>' +
-      '<p class="ecg-tip">' + IC.expand + '<span><b>Tip:</b> click the strip to open it full screen. Zoom with + / −, the mouse wheel or a pinch, double-click to zoom in on a spot, and drag to move around. Use the calipers to measure.</span></p>' +
-      '<div><div class="paper">' + stripSVG(data.strips, q.strip) + '</div><div class="paper-meta"><span>Lead II · 25 mm/s · 6-second strip' + (key === "field" ? ' · recorded in a moving ambulance' : '') + '</span><span class="scroll-hint"></span></div></div>' +
-      '<div><div class="eyebrow" style="margin-bottom:10px">Identify the rhythm</div><div class="opts" id="arOpts" role="group" aria-label="Answer choices">' + opts + '</div></div>' +
+      dots += '<button class="dot ' + c + (n === st.pi ? " cur" : "") + '" data-n="' + n + '" aria-label="' + unit + ' ' + n + (lockd ? ' (subscribers)' : '') + '"' + (lockd ? ' disabled' : '') + '>' + n + '</button>'; }
+    var vq = twelve ? vesselHTML(q, st) : "";
+    body.innerHTML = head + '<div class="card qcard"><div class="strip-top"><div class="stem"><span class="tag">' + esc(m.short) + '</span><p>' + esc(q.stem || (twelve ? 'Interpret this 12-lead ECG.' : 'Identify this rhythm.')) + '</p></div>' + (q.hints ? cardioBtnHTML(q, st, done) : '') + '</div>' +
+      '<p class="ecg-tip">' + IC.expand + '<span><b>Tip:</b> click the ' + (twelve ? 'ECG' : 'strip') + ' to open it full screen. Zoom with + / −, the mouse wheel or a pinch, double-click to zoom in on a spot, and drag to move around. Use the calipers to measure.</span></p>' +
+      '<div><div class="paper">' + (twelve ? ecg12SVG(q) : stripSVG(data.strips, q.strip)) + '</div><div class="paper-meta"><span>' +
+        (twelve ? '12-lead · 25 mm/s · 10 mm/mV · bottom row: lead II rhythm strip' + (q.field ? ' · recorded on scene, real patient' : '') + '</span><span><button class="btn btn-ghost ecg-expand" data-expand="1" type="button">' + IC.expand + 'Expand and zoom</button>'
+          : 'Lead II · 25 mm/s · 6-second strip' + (key === "field" ? ' · recorded in a moving ambulance' : '')) + '</span><span class="scroll-hint"></span></div></div>' +
+      (vq
+        ? '<div class="answered-line ' + (chosen === q.cat ? 'ok' : 'no') + '"><span class="eyebrow">Your interpretation</span><b>' + esc(chosen === REVEALED ? 'Revealed by the cardiologist' : chosen) + '</b><span>' + (chosen === q.cat ? '✓ Correct' : '✗ It\'s ' + esc(q.cat)) + '</span><div class="opts" id="arOpts" hidden>' + opts + '</div></div>' + vq
+        : '<div><div class="eyebrow" style="margin-bottom:10px">' + (twelve ? 'What does it show?' : 'Identify the rhythm') + '</div><div class="opts" id="arOpts" role="group" aria-label="Answer choices">' + opts + '</div></div>') +
       '<div aria-live="polite">' + (done ? feedbackHTML(q, chosen) : '') + '</div>' +
-      '<div class="qnav"><button class="btn btn-ghost" id="arPrev" ' + (st.pi === 1 ? 'disabled' : '') + '>← Previous</button><button class="btn btn-primary" id="arNext">' + (st.pi === total ? 'See area results →' : (done ? 'Next strip →' : 'Skip →')) + '</button></div></div>' +
-      '<details class="card grid-nav"><summary>All ' + total + ' strips in this area' + (partial ? ' (the first ' + avail + ' are free)' : '') + '</summary><div class="dots" id="arDots">' + dots + '</div><div class="legend"><span><i style="background:var(--ok)"></i>Correct</span><span><i style="background:var(--bad)"></i>Incorrect</span><span><i style="background:var(--line-2)"></i>Not answered</span></div></details>';
+      '<div class="qnav"><button class="btn btn-ghost" id="arPrev" ' + (st.pi === 1 ? 'disabled' : '') + '>← Previous</button><button class="btn btn-primary" id="arNext">' + (st.pi === total ? 'See area results →' : (done ? 'Next ' + unit.toLowerCase() + ' →' : 'Skip →')) + '</button></div></div>' +
+      '<details class="card grid-nav"><summary>All ' + total + ' ' + unit.toLowerCase() + 's in this area' + (partial ? ' (the first ' + avail + ' are free)' : '') + '</summary><div class="dots" id="arDots">' + dots + '</div><div class="legend"><span><i style="background:var(--ok)"></i>Correct</span><span><i style="background:var(--bad)"></i>Incorrect</span><span><i style="background:var(--line-2)"></i>Not answered</span></div></details>';
     if ($("arCardioBtn")) $("arCardioBtn").onclick = function () { callCardiologist(key, q, st); };
     if ($("arCardioShow")) $("arCardioShow").onclick = function () { S.cmin = false; save(); renderCardioPop(q, st, done); };
     renderCardioPop(q.hints ? q : null, st, done);
-    $("arOpts").onclick = function (e) { var b = e.target.closest(".opt"); if (!b || b.disabled) return; st.p[q.n] = b.getAttribute("data-o"); st.ok[q.n] = st.p[q.n] === q.cat; save(); renderArea(key); };
+    $("arOpts").onclick = function (e) { var b = e.target.closest(".opt"); if (!b || b.disabled) return; st.p[q.n] = b.getAttribute("data-o"); st.ok[q.n] = st.p[q.n] === q.cat; save(); renderArea(key);
+      if ($("arVessel")) setTimeout(function () { var vqEl = ROOT.querySelector("#v-area .vessel-q"); if (vqEl) vqEl.scrollIntoView({ block: "nearest" }); }, 60); };
+    if ($("arVessel")) $("arVessel").onclick = function (e) { var b = e.target.closest(".opt"); if (!b || b.disabled) return; st.v = st.v || {}; st.v[q.n] = +b.getAttribute("data-v"); st.vok = st.vok || {}; st.vok[q.n] = st.v[q.n] === VESSEL_OF[q.cat][0]; save(); renderArea(key);
+      var vf = ROOT.querySelector("#v-area .vessel-q .fb"); if (vf) vf.scrollIntoView({ block: "nearest" }); };
     $("arPrev").onclick = function () { if (st.pi > 1) { st.pi--; save(); renderArea(key); scrollTop(); } };
     $("arNext").onclick = function () { st.pi++; save(); renderArea(key); scrollTop(); };
     $("arDots").onclick = function (e) { var b = e.target.closest(".dot"); if (!b || b.disabled) return; st.pi = +b.getAttribute("data-n"); save(); renderArea(key); scrollTop(); };
-    if (done && chosen !== q.cat) markStrip(ROOT.querySelector("#v-area .paper"), data.strips, q.strip, q.cat, q);
+    if (done && chosen !== q.cat) { if (twelve) markECG12(ROOT.querySelector("#v-area .paper"), q); else markStrip(ROOT.querySelector("#v-area .paper"), data.strips, q.strip, q.cat, q); }
     fitStrip(); setTimeout(fitStrip, 0);
   }
   /* scale the strip to the screen so it's visible without scrolling */
@@ -277,7 +377,8 @@
     var topOf = function (el2) { return el2.getBoundingClientRect().top + window.scrollY; };
     var band = wrap && wrap.classList.contains("cal-on") ? 80 : 0, metaH = meta2 ? meta2.getBoundingClientRect().height + 10 : 0;
     var availH = window.innerHeight - bar - 20 - (topOf(paper) - topOf(card)) - band - metaH - 4, availW = paper.clientWidth;
-    var w = Math.floor(Math.max(Math.min(300, availW), Math.min(availW, availH * 6000 / H)));
+    var vb = (svg.getAttribute("viewBox") || "0 0 6000 960").split(/\s+/), aspect = (+vb[2]) / (+vb[3] || 1);
+    var w = Math.floor(Math.max(Math.min(300, availW), Math.min(availW, availH * aspect)));
     if (wrap) { svg.style.width = ""; svg.style.minWidth = ""; wrap.style.width = w + "px"; wrap.style.minWidth = "0"; wrap.style.margin = "0 auto"; }
     else { svg.style.width = w + "px"; svg.style.minWidth = "0"; svg.style.margin = "0 auto"; }
     if (window.__clCalUpdate) window.__clCalUpdate();
@@ -436,7 +537,7 @@
         window.addEventListener("resize", function () { if (!g("ecgView").hidden) fit(); });
       }
       ECGV.opener = document.activeElement;
-      var clone = srcSvg.cloneNode(true); clone.removeAttribute("style"); clone.removeAttribute("class"); clone.classList.add("ecgv-svg");
+      var clone = srcSvg.cloneNode(true); clone.removeAttribute("style"); clone.removeAttribute("class"); clone.classList.add("ecgv-svg"); if (srcSvg.classList.contains("ecg12")) clone.classList.add("ecg12");
       g("ecgvInner").innerHTML = ""; g("ecgvInner").appendChild(clone);
       var mk = srcSvg.parentNode.querySelector(":scope > .mk-ov"); if (mk) { var mc = mk.cloneNode(true); mc.style.top = "0"; g("ecgvInner").appendChild(mc); }
       g("ecgvTitle").textContent = title || "Rhythm strip";
@@ -468,9 +569,11 @@
     document.addEventListener("click", function (e) {
       if (!e.target.closest || !e.target.closest(".cl")) return;
       if (e.target.closest(".cal-ov, .cal-toggle")) return;   // calipers keep their own clicks
-      var svg = e.target.closest(".paper svg:not(.cal-svg)"); if (!svg) return;
+      var btn = e.target.closest("[data-expand]"), svg = btn ? null : e.target.closest(".paper svg:not(.cal-svg)");
+      if (btn) { var v0 = btn.closest(".view"); svg = v0 && v0.querySelector(".paper svg:not(.cal-svg)"); }
+      if (!svg) return;
       var view = svg.closest(".view"), h2 = view && view.querySelector(".qhead h2");
-      open(svg, (h2 ? h2.textContent.replace(/\s+/g, " ").trim() + " · " : "") + "Rhythm strip");
+      open(svg, (h2 ? h2.textContent.replace(/\s+/g, " ").trim() + " · " : "") + (svg.classList.contains("ecg12") ? "12-lead ECG" : "Rhythm strip"));
     });
   })();
 
@@ -498,7 +601,7 @@
       document.querySelectorAll(".cl .paper > svg").forEach(function (svg) {
         if (svg.closest(".cal-wrap")) return;
         var vb = (svg.getAttribute("viewBox") || "0 0 6000 1").split(/\s+/), ms = +vb[2] || 6000;
-        var wrap = document.createElement("div"); wrap.className = "cal-wrap";
+        var wrap = document.createElement("div"); wrap.className = "cal-wrap" + (svg.classList.contains("ecg12") ? " wide" : "");
         svg.parentNode.insertBefore(wrap, svg); wrap.appendChild(svg);
         Array.prototype.slice.call(wrap.parentNode.querySelectorAll(":scope > .mk-ov")).forEach(function (o) { wrap.appendChild(o); });
         attach(wrap, ms);

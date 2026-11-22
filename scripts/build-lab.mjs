@@ -1,7 +1,7 @@
 // Build the Cardiac Lab practice strips and Code lab for the Lab (Live Monitor subscription).
 //
 // Sources (copied from the Cardiac Lab project, see src/lab/README.md):
-//   src/lab/<area>.json        practice areas: sinus, atrial, junctional, ventricular, block, paced, field, random
+//   src/lab/<area>.json        practice areas: sinus, atrial, junctional, ventricular, block, paced, field, random, twelve (12-lead ECGs)
 //   src/lab/codelab.js         the Code lab (cases + runner)
 //   src/lab/defib.js           the monitor / defibrillator / pacer the Code lab runs on
 //   src/lab/cardiac-lab.src.css  Cardiac Lab's styles
@@ -38,6 +38,7 @@ export const AREAS = [
 	{ key: 'block', title: 'AV blocks', short: 'AV blocks', color: 'var(--band-orange)', soft: 'var(--orange-soft)', ink: 'var(--orange)', blurb: '1st degree, Wenckebach, Mobitz II, 2:1, high-grade and complete heart block.' },
 	{ key: 'paced', title: 'Paced rhythms', short: 'Paced', color: 'var(--band-navy)', soft: 'var(--navy-soft)', ink: 'var(--navy)', blurb: 'Atrial, ventricular and dual-chamber pacing, demand pacing, pacer malfunction and transcutaneous pacing.' },
 	{ key: 'field', title: 'Field strips: the back of the ambulance', short: 'Field', wide: true, color: 'linear-gradient(120deg,#3A4148,var(--band-orange) 60%,var(--band-red))', soft: 'var(--orange-soft)', ink: 'var(--orange)', blurb: 'Strips from every rhythm family the way they really look on a moving rig: breathing wander, road vibration, bumps, shivering and the odd loose electrode. Read the rhythm through the mess.' },
+	{ key: 'twelve', title: '12-lead ECGs', short: '12-lead', wide: true, unit: 'ECGs', color: 'linear-gradient(120deg,var(--band-navy),var(--band-teal) 55%,var(--band-red))', soft: 'var(--navy-soft)', ink: 'var(--navy)', blurb: 'STEMI territories and equivalents (Wellens, de Winter, aVR), bundle branch blocks, WPW, LVH, Brugada, long QT, potassium problems, pericarditis and early repolarization, on full 12-lead printouts, including 50 recorded on scene. After a STEMI, name the culprit artery. Stuck? Call the cardiologist.' },
 	{ key: 'random', title: 'Random ECG Practice Strips', short: 'Random', wide: true, color: 'linear-gradient(120deg,var(--band-blue),var(--band-navy))', soft: 'var(--blue-soft)', ink: 'var(--blue)', blurb: 'A mixed set from every rhythm family, in random order, with a patient scenario for each and a full interpretation after you answer.' }
 ];
 
@@ -46,10 +47,14 @@ const random = JSON.parse(read('random.json'));
 const CATS = random.cats;
 const full = { version: 1, areas: {}, codelab: null };
 const free = { free: FREE, areas: [], cats: CATS, data: {}, codelab: null };
+// the 12-lead area brings its own interpretations
+const TWELVE = JSON.parse(read('twelve.json'));
+for (const [k, v] of Object.entries(TWELVE.cats || {})) { if (CATS[k]) throw new Error('12-lead category clashes with a strip category: ' + k); CATS[k] = v; }
 for (const a of AREAS) {
-	const d = JSON.parse(read(a.key + '.json'));
+	const d = a.key === 'twelve' ? TWELVE : JSON.parse(read(a.key + '.json'));
 	for (const q of d.items) for (const c of [q.cat, ...q.options]) if (!CATS[c]) throw new Error(`${a.key}: no explanation for "${c}"`);
-	const pick = (items) => { const strips = {}; items.forEach((q) => { strips[q.strip] = d.strips[q.strip]; if (!strips[q.strip]) throw new Error(`${a.key}: missing strip ${q.strip}`); }); return strips; };
+	// rhythm strips reference a shared strip table; 12-leads carry their own leads
+	const pick = (items) => { const strips = {}; items.forEach((q) => { if (q.leads) { if (!q.leads.rhythm) throw new Error(`${a.key}: 12-lead ${q.n} has no rhythm strip`); return; } strips[q.strip] = d.strips[q.strip]; if (!strips[q.strip]) throw new Error(`${a.key}: missing strip ${q.strip}`); }); return strips; };
 	const categories = d.categories || [...new Set(d.items.map((q) => q.cat))];
 	full.areas[a.key] = { key: a.key, categories, items: d.items, strips: pick(d.items) };
 	const fi = d.items.slice(0, FREE);

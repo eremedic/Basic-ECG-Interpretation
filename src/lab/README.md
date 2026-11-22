@@ -9,6 +9,7 @@ free preview (`site/js/cl-free.js`), the subscriber bank (`netlify/data/lab-full
 | --- | --- |
 | `sinus.json` … `paced.json` | `static/areas/<area>.json` |
 | `field.json` | `lib/field-data.mjs` (as JSON) |
+| `twelve.json` | `lib/twelve-data.mjs` (as JSON): the 150 12-lead ECGs and their interpretations |
 | `random.json` | `static/trainer.json`: the 102 practice strips, their strips and every rhythm explanation |
 | `codelab.js`, `defib.js` | `src/lib/sim/` |
 | `twelve-rhythms.json` | `static/twelve-rhythms.json` (the monitor's 12-LEAD key) |
