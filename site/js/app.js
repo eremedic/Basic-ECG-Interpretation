@@ -438,6 +438,10 @@
       '<p>' + (CRS.EXAM.concept + CRS.EXAM.strips) + ' questions covering every unit: ' + CRS.EXAM.concept + ' concept questions and ' + CRS.EXAM.strips + ' rhythm strips. Pass with ' + PASS + '% to earn your certificate.</p>' +
       '<div class="card-meta"><span>' + (course.data.exam != null ? 'Best score ' + course.data.exam + '%' : 'Not attempted') + '</span>' +
       (examPassed() ? '<span class="badge">✓ Passed</span>' : examOpen() ? '<span class="unit-state">Unlocked</span>' : '<span class="unit-lock">' + lockIcon() + (paid() ? ' Pass every unit quiz to unlock' : ' Enroll to unlock') + '</span>') + '</div></div></' + (examOpen() ? 'a' : 'div') + '>' +
+      '<' + (examPassed() ? 'a href="#course-cert"' : 'div') + ' class="unit-card exam course-cert' + (examPassed() ? '' : ' locked') + '" style="--c:#7a1f2b"><span class="unit-num">' + ICON.trophy + '</span><div class="unit-body"><h3>Certificate of Completion</h3>' +
+      '<p>Your certificate with your name, final exam score and date, and an ID anyone can verify. View, print or save it as a PDF.</p>' +
+      '<div class="card-meta"><span>' + (examPassed() ? 'Earned with ' + course.data.exam + '%' : 'Not earned yet') + '</span>' +
+      (examPassed() ? '<span class="badge">✓ Unlocked</span>' : '<span class="unit-lock">' + lockIcon() + (paid() ? ' Pass the final exam to unlock' : ' Enroll to unlock') + '</span>') + '</div></div></' + (examPassed() ? 'a' : 'div') + '>' +
       '</div>' +
       (examPassed() ? '<div class="exam-banner" style="margin-top:22px"><div><h3>Course complete</h3><p>You passed the final exam with ' + course.data.exam + '%. View or print your certificate.</p></div><a class="btn btn-primary" href="#course-cert">View certificate</a></div>' : '') +
       '</div></section>';
@@ -2461,7 +2465,7 @@
     else if (/^monitor-[a-z]+(-\d+)?$/.test(h)) { var mm = /^monitor-([a-z]+)(?:-(\d+))?$/.exec(h); viewMonitorStrip(mm[1], mm[2] ? +mm[2] : 0); nav = 'monitor'; }
     else if (cm) {
       viewCourseRoute(cm[1], cm[2]);
-      nav = cm[1] === 'exam' ? 'exam' : cm[1] === 'cert' ? 'cert' : 'course';
+      nav = 'course';
     } else viewNotFound();
     $all('[data-nav]').forEach(function (a) { a.classList.toggle('active', a.dataset.nav === nav); });
     $('.site-nav').classList.remove('open');
