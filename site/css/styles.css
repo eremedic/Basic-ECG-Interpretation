@@ -832,7 +832,15 @@ a.lesson-row:hover { border-color: var(--c); }
 .price-tag b { font-family: var(--display); font-size: 2.4rem; color: #fff; line-height: 1; }
 .hero-signin { margin: 14px 0 0; color: #aab6d6; font-size: .92rem; }
 .hero-signin a { color: #fff; }
-.curriculum { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+/* the course units scroll sideways in one row */
+.curriculum { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(270px, 320px); gap: 14px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-left: 2px; padding: 2px 2px 12px; scrollbar-width: thin; }
+.curriculum:focus-visible { outline: 3px solid var(--brand, #1b7a8c); outline-offset: 4px; border-radius: var(--radius); }
+.curriculum .cur-unit { scroll-snap-align: start; flex-direction: column; gap: 10px; }
+.cur-unit .unit-num { flex: none; }
+.cur-nav { display: flex; gap: 8px; align-self: flex-end; }
+.cur-nav .btn { min-width: 44px; font-size: 1.1rem; }
+.cur-nav .btn:disabled { opacity: .35; cursor: default; }
+@media (max-width: 640px) { .cur-nav { display: none; } .curriculum { grid-auto-columns: 82%; } }
 .cur-unit { display: flex; gap: 14px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: var(--radius); padding: 16px; }
 .cur-unit h3 { font-size: 1rem; margin: 0 0 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .cur-unit p { margin: 0; color: var(--muted); font-size: .9rem; }
