@@ -1589,8 +1589,9 @@
       '<div class="step"><div class="n">3</div><h3>Prove it</h3><p>Pass each unit quiz with 80% to unlock the next unit, then take the 25-question final exam and earn your certificate.</p></div>' +
       '</div></div></section>' +
 
-      '<section class="section" style="padding-top:0"><div class="wrap"><div class="section-head"><div><h2>What you’ll learn</h2><p>Nine units, taken in order. Unit 1 is free — try it before you enroll.</p></div></div>' +
-      '<div class="curriculum">' + UNITS.map(function (u, i) {
+      '<section class="section" style="padding-top:0"><div class="wrap"><div class="section-head"><div><h2>What you’ll learn</h2><p>Nine units, taken in order. Unit 1 is free — try it before you enroll.</p></div>' +
+      '<div class="cur-nav"><button class="btn btn-ghost btn-sm" type="button" data-cur="-1" aria-label="Previous units">←</button><button class="btn btn-ghost btn-sm" type="button" data-cur="1" aria-label="More units">→</button></div></div>' +
+      '<div class="curriculum" id="curriculum" tabindex="0" aria-label="Course units: scroll sideways for more">' + UNITS.map(function (u, i) {
         return '<div class="cur-unit" style="--c:' + u.color + '"><span class="unit-num">' + (i + 1) + '</span><div><h3>' + esc(u.title) + (i === 0 ? ' <span class="badge">Free</span>' : '') + '</h3><p>' + esc(u.summary) + '</p></div></div>';
       }).join('') + '</div></div></section>' +
 
@@ -1637,6 +1638,17 @@
       $all('#teaser button').forEach(function (x) { x.classList.toggle('on', x === b); });
       run(b.dataset.r);
     });
+    // the units scroll sideways: arrows move one card at a time, and grey out at either end
+    var cur = $('#curriculum');
+    if (cur) {
+      var navBtns = $all('[data-cur]');
+      var ends = function () { var max = cur.scrollWidth - cur.clientWidth - 2; navBtns.forEach(function (b) { b.disabled = b.dataset.cur < 0 ? cur.scrollLeft <= 2 : cur.scrollLeft >= max; }); };
+      navBtns.forEach(function (b) { b.addEventListener('click', function () {
+        var card = cur.querySelector('.cur-unit'), step = card ? card.getBoundingClientRect().width + 14 : 320;
+        cur.scrollBy({ left: +b.dataset.cur * step, behavior: 'smooth' });
+      }); });
+      cur.addEventListener('scroll', ends, { passive: true }); onResize(ends); ends();
+    }
     $all('.faq-q').forEach(function (q) { q.addEventListener('click', function () { q.parentElement.classList.toggle('open'); q.setAttribute('aria-expanded', q.parentElement.classList.contains('open')); }); });
     cleanup.push(function () { if (mon) mon.stop(); clearInterval(t); });
     // the Lab's monitor in the Lab section, playing one of the free strips
