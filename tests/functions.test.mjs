@@ -596,3 +596,36 @@ test('join a class: bad or expired tokens; expired class; code cleanup', async (
 	assert.equal(cleanCode(' k7qm-3rxp '), 'K7QM-3RXP');
 	assert.equal(cleanCode('abc'), null);
 });
+
+import { handle as labBank } from '../netlify/functions/lab-bank.mjs';
+
+test('Lab bank: practice areas and Code lab cases for Live Monitor subscribers only', async () => {
+	const data = { areas: { sinus: { key: 'sinus', items: [1, 2, 3] }, field: { key: 'field', items: [4] } }, codelab: { cases: ['vf1', 'brady1'] } };
+	const deps = fakeDeps();
+	const { token: courseToken } = await enroll(deps);                           // course student, no subscription
+	const course = { authorization: `Bearer ${courseToken}` };
+	assert.equal((await labBank(get('/api/lab-bank?part=sinus', course), deps, data)).status, 403, 'the course alone does not unlock the Lab');
+	assert.equal((await labBank(get('/api/lab-bank?part=sinus'), deps, data)).status, 401, 'signed out');
+	const { token } = await subscribeMonitor(deps, 'Sam Medic', 'sam@example.com');
+	const auth = { authorization: `Bearer ${token}` };
+	const [s1, r1] = await body(await labBank(get('/api/lab-bank?part=sinus', auth), deps, data));
+	assert.equal(s1, 200);
+	assert.deepEqual(r1, { part: 'sinus', data: data.areas.sinus });
+	const [s2, r2] = await body(await labBank(get('/api/lab-bank?part=codelab', auth), deps, data));
+	assert.equal(s2, 200);
+	assert.deepEqual(r2.data, data.codelab);
+	assert.equal((await labBank(get('/api/lab-bank?part=twelve', auth), deps, data)).status, 404, 'no 12-leads in the Lab');
+	assert.equal((await labBank(get('/api/lab-bank?part=__proto__', auth), deps, data)).status, 404);
+	assert.equal((await labBank(get('/api/lab-bank', auth), deps, data)).status, 404);
+	assert.equal((await labBank(post('/api/lab-bank?part=sinus', {}), deps, data)).status, 405);
+});
+
+test('Lab bank: the built bank has every practice area and all Code lab cases', async () => {
+	const { default: built } = await import('../netlify/data/lab-full.json', { with: { type: 'json' } });
+	assert.deepEqual(Object.keys(built.areas), ['sinus', 'atrial', 'junctional', 'ventricular', 'block', 'paced', 'field', 'random']);
+	for (const [k, a] of Object.entries(built.areas)) {
+		assert.ok(a.items.length >= 50, k + ' has its strips');
+		for (const q of a.items) assert.ok(a.strips[q.strip], k + ' strip ' + q.strip);
+	}
+	assert.equal(built.codelab.cases.length, 12);
+});

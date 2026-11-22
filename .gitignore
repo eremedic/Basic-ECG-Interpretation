@@ -5,3 +5,8 @@ node_modules/
 site/js/course-preview.js
 site/js/monitor-strips.js
 netlify/data/
+site/js/cl-free.js
+site/js/cl-codelab.js
+site/js/cl-defib.js
+site/css/cardiac-lab.css
+site/data/
