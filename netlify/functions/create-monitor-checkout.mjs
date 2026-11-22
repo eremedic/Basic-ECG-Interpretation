@@ -30,7 +30,7 @@ export async function handle(req, deps) {
 					recurring: { interval: 'month' },
 					product_data: {
 						name: 'Basic ECG Interpretation Lab — Live Monitor (monthly)',
-						description: '300 live ECG rhythms on a cardiac monitor, 602 practice strips with full feedback, and the Code lab: ACLS cases on a live defibrillator. Cancel anytime.',
+						description: '300 live ECG rhythms on a cardiac monitor, 602 practice strips and 150 12-lead ECGs with full feedback, and the Code lab: ACLS cases on a live defibrillator. Cancel anytime.',
 						images: [`${deps.siteUrl}/assets/stripe-course.png`]
 					}
 				},
